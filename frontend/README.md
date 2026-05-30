@@ -1,4 +1,4 @@
-# PrivyScan — Frontend
+# PrivyScan - Frontend
 
 Landing page and dashboard UI for PrivyScan, a local-first privacy auditing tool.
 
