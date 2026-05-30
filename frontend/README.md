@@ -1,11 +1,12 @@
+# PrivyScan — Frontend
 
-  # Design Full-Scroll Landing Page
+Landing page and dashboard UI for PrivyScan, a local-first privacy auditing tool.
 
-  This is a code bundle for Design Full-Scroll Landing Page. The original project is available at https://www.figma.com/design/Zk4zxIVuyDptNt6ma7QOev/Design-Full-Scroll-Landing-Page.
+## Running the frontend
 
-  ## Running the code
+```bash
+npm install
+npm run dev
+```
 
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+Runs at http://localhost:5173
