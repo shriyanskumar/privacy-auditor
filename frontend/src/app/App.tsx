@@ -1,11 +1,8 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
-import { Hero } from "./components/Hero";
-import { PrivacyDebt } from "./components/PrivacyDebt";
-import { Features } from "./components/Features";
-import { Demo } from "./components/Demo";
-import { Team } from "./components/Team";
-import { Footer } from "./components/Footer";
 import { AnimatedBackground } from "./components/AnimatedBackground";
+import HomePage from "../pages/HomePage";
+import AppDashboard from "../pages/AppDashboard";
 
 export default function App() {
   return (
@@ -14,15 +11,16 @@ export default function App() {
       <AnimatedBackground />
 
       {/* All content sits on top of the animated background */}
-      <div className="relative z-10">
-        <Navbar />
-        <Hero />
-        <PrivacyDebt />
-        <Features />
-        <Demo />
-        <Team />
-        <Footer />
-      </div>
+      <BrowserRouter>
+        <div className="relative z-10">
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/app" element={<AppDashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
     </div>
   );
 }

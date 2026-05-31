@@ -43,6 +43,16 @@ db.exec(`
     device_model TEXT,
     software TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS tracker_findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,
+    company TEXT,
+    category TEXT,
+    matched_domain TEXT,
+    browser TEXT,
+    risk_level TEXT
+  );
 `);
 
 console.log("Database initialized");
