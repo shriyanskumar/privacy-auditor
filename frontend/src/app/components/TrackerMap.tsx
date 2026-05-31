@@ -355,15 +355,18 @@ export function TrackerMap({
   };
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-[48px] py-6 pt-8 text-white">
-      {loading ? (
-        <div className="flex min-h-[320px] items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-12 w-12 rounded-full border-4 border-white/10 border-t-[#FF6B00] animate-spin" />
-            <div className="text-[#8B8B8B]">Loading tracker fingerprint…</div>
-          </div>
-        </div>
-      ) : error ? (
+    <div
+      style={{
+        width: "100%",
+        // maxWidth: "1200px",
+        //margin: "0 auto",
+        background: "#0A0A0A",
+        border: "1px solid #FF6B00",
+        borderRadius: "16px",
+        padding: "32px",
+      }}
+    >
+      {error ? (
         <div className="flex min-h-[280px] items-center justify-center">
           <div className="text-center text-red-400">{error}</div>
         </div>
@@ -376,64 +379,81 @@ export function TrackerMap({
       ) : (
         <>
           <div className="mb-8">
-            <h1 style={{ fontSize: "28px", fontWeight: 700 }} className="">
+            <h1
+              className="text-white"
+              style={{
+                fontSize: "28px",
+                fontWeight: 700,
+              }}
+            >
               Tracker Fingerprint
             </h1>
-            <div className="mt-2 text-sm uppercase tracking-[0.28em] text-[#8B8B8B]">
-              {total} TRACKERS DETECTED
+
+            <div
+              style={{
+                color: "#8B8B8B",
+                marginTop: "8px",
+                fontSize: "13px",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+              }}
+            >
+              {total} Trackers Detected
+            </div>
+
+            <div style={{ marginTop: "24px" }}>
+              <div
+                style={{
+                  color: "#FF6B00",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.15em",
+                  marginBottom: "10px",
+                  fontWeight: 600,
+                }}
+              >
+                Executive Summary
+              </div>
+
+              <div
+                style={{
+                  padding: "18px 22px",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,107,0,0.12)",
+                  borderRadius: "12px",
+                  color: "#CFCFCF",
+                  fontSize: "15px",
+                  lineHeight: "1.8",
+                }}
+              >
+                Detected{" "}
+                <span style={{ color: "#FFFFFF", fontWeight: 700 }}>
+                  {total}
+                </span>{" "}
+                trackers across multiple services.
+                <br />
+                <br />
+                Advertising trackers account for{" "}
+                <span style={{ color: "#FF6B00", fontWeight: 600 }}>
+                  {advertising}
+                </span>{" "}
+                detections, while Analytics contributes{" "}
+                <span style={{ color: "#4C6EF5", fontWeight: 600 }}>
+                  {analytics}
+                </span>
+                .
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-[1fr_1fr]">
-            <div
-              className="rounded-[16px] bg-white/5 p-4"
-              style={{
-                background: "rgba(255, 255, 255, 0.04)",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                border: "1px solid rgba(255, 107, 0, 0.12)",
-                borderRadius: "16px",
-                alignSelf: "stretch",
-              }}
-            >
-              <div
-                className="relative w-full rounded-[16px]"
-                style={{ height: "550px", overflow: "visible" }}
-                ref={networkContainerRef}
-              >
-                <svg
-                  ref={advancedSvgRef}
-                  className="w-full h-full overflow-visible"
-                />
-                <div
-                  ref={tooltipRef}
-                  className="pointer-events-none absolute z-20 hidden px-3 py-2 text-xs text-white shadow-xl"
-                  style={{
-                    display: "none",
-                    background: "rgba(255, 255, 255, 0.04)",
-                    backdropFilter: "blur(8px)",
-                    WebkitBackdropFilter: "blur(8px)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: "12px",
-                  }}
-                />
-              </div>
-              <div className="mt-6 flex justify-center gap-8">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#FF4444]" />
-                  <span className="text-sm text-white">High Risk</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#F0A500]" />
-                  <span className="text-sm text-white">Medium Risk</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#00C48C]" />
-                  <span className="text-sm text-white">Low Risk</span>
-                </div>
-              </div>
-            </div>
-
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "24px",
+            }}
+          >
+            {" "}
             <div
               className="rounded-[16px] bg-white/5 p-6"
               style={{
@@ -447,7 +467,15 @@ export function TrackerMap({
               }}
             >
               <div className="mb-6">
-                <h3 style={{ fontSize: "18px", fontWeight: 600 }}>Insights</h3>
+                <h3
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                  }}
+                >
+                  Insights
+                </h3>
                 <p
                   style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)" }}
                   className="mt-2 max-w-3xl"
@@ -534,12 +562,73 @@ export function TrackerMap({
                   <div className="text-4xl font-bold text-white">{social}</div>
                 </div>
               </div>
+              <div
+                className="rounded-[16px] bg-white/5 p-4"
+                style={{
+                  background: "rgba(255, 255, 255, 0.04)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255, 107, 0, 0.12)",
+                  borderRadius: "16px",
+                  alignSelf: "stretch",
+                }}
+              >
+                <div
+                  className="relative w-full rounded-[16px]"
+                  style={{
+                    height: "650px", // was 550px
+                    overflow: "visible",
+                  }}
+                  ref={networkContainerRef}
+                >
+                  <svg
+                    ref={advancedSvgRef}
+                    className="w-full h-full overflow-visible"
+                  />
 
+                  <div
+                    ref={tooltipRef}
+                    className="pointer-events-none absolute z-20 hidden px-3 py-2 text-xs text-white shadow-xl"
+                    style={{
+                      display: "none",
+                      background: "rgba(255, 255, 255, 0.04)",
+                      backdropFilter: "blur(8px)",
+                      WebkitBackdropFilter: "blur(8px)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      borderRadius: "12px",
+                    }}
+                  />
+                </div>
+
+                <div className="mt-6 flex justify-center gap-8">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#FF4444]" />
+                    <span className="text-sm text-white">High Risk</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#F0A500]" />
+                    <span className="text-sm text-white">Medium Risk</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#00C48C]" />
+                    <span className="text-sm text-white">Low Risk</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ height: "20px" }} />
               <div className="space-y-10">
                 <div>
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div>
-                      <h4 style={{ fontSize: "18px", fontWeight: 600 }}>
+                      <h4
+                        style={{
+                          fontSize: "18px",
+                          fontWeight: 600,
+                          color: "#FFFFFF",
+                        }}
+                      >
                         Top Tracking Companies
                       </h4>
                       <p
@@ -556,7 +645,12 @@ export function TrackerMap({
                       Top 10
                     </span>
                   </div>
-                  <div className="space-y-4">
+                  <div
+                    className="space-y-2"
+                    style={{
+                      overflow: "visible",
+                    }}
+                  >
                     {topTrackers.map((tracker, index) => (
                       <div
                         key={tracker.id}
@@ -567,7 +661,12 @@ export function TrackerMap({
                             <div className="text-[10px] text-[#8B8B8B] uppercase tracking-[0.18em] mb-1">
                               #{index + 1}
                             </div>
-                            <div className="text-sm font-semibold truncate">
+                            <div
+                              className="text-sm font-semibold truncate"
+                              style={{
+                                color: "#FFFFFF",
+                              }}
+                            >
                               {tracker.label}
                             </div>
                           </div>
@@ -607,7 +706,13 @@ export function TrackerMap({
 
                 <div>
                   <div className="mb-4">
-                    <h4 style={{ fontSize: "18px", fontWeight: 600 }}>
+                    <h4
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#FFFFFF",
+                      }}
+                    >
                       Tracker Categories
                     </h4>
                     <p
@@ -661,7 +766,13 @@ export function TrackerMap({
                 <div className="grid gap-8">
                   <div>
                     <div className="mb-4">
-                      <h4 style={{ fontSize: "18px", fontWeight: 600 }}>
+                      <h4
+                        style={{
+                          fontSize: "18px",
+                          fontWeight: 600,
+                          color: "#FFFFFF",
+                        }}
+                      >
                         Highest Risk Trackers
                       </h4>
                       <p
@@ -720,7 +831,13 @@ export function TrackerMap({
 
                   <div>
                     <div className="mb-4">
-                      <h4 style={{ fontSize: "18px", fontWeight: 600 }}>
+                      <h4
+                        style={{
+                          fontSize: "18px",
+                          fontWeight: 600,
+                          color: "#FFFFFF",
+                        }}
+                      >
                         Additional Insights
                       </h4>
                       <p
