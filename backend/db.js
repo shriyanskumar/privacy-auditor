@@ -53,6 +53,19 @@ db.exec(`
     browser TEXT,
     risk_level TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS shadow_copies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,
+    file_path TEXT,
+    filename TEXT,
+    file_size INTEGER DEFAULT 0,
+    detected_pattern TEXT,
+    file_extension TEXT,
+    severity TEXT DEFAULT 'medium',
+    detected_at TEXT,
+    FOREIGN KEY(session_id) REFERENCES scan_sessions(id)
+  );
 `);
 
 console.log("Database initialized");

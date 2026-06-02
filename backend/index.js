@@ -464,6 +464,28 @@ app.get("/api/trackers/:sessionId", async (req, res) => {
   }
 });
 
+// Get shadow copies detected in a session
+app.get("/api/shadow-copies/:sessionId", (req, res) => {
+  try {
+    const sessionId = req.params.sessionId;
+
+    const total = db
+      .prepare("SELECT COUNT(*) AS count FROM shadow_copies WHERE session_id = ?")
+      .get(sessionId).count;
+
+    const shadowCopies = db
+      .prepare(
+        "SELECT id, file_path, filename, file_size, detected_pattern, file_extension, severity, detected_at FROM shadow_copies WHERE session_id = ? ORDER BY detected_at DESC"
+      )
+      .all(sessionId);
+
+    res.json({ shadowCopies, total });
+  } catch (err) {
+    console.error("Shadow copies error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`PrivyScan backend running on http://localhost:${PORT}`);

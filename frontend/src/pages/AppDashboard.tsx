@@ -1,17 +1,68 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TrackerMap } from "../app/components/TrackerMap";
 import ExifWalk from "../app/components/ExifWalk";
 import PrivacyDebtHeatmap from "../app/components/PrivacyDebtHeatmap";
 import { Footer } from "../app/components/Footer";
+import { ShadowCopyPanel } from "../app/components/ShadowCopyPanel";
+
+type Finding = {
+  id: number;
+  file_path: string;
+  finding_type: string;
+  severity: string;
+  snippet: string;
+};
+
+type ShadowCopy = {
+  id: number;
+  file_path: string;
+  filename: string;
+  file_size: number;
+  detected_pattern: string;
+  file_extension: string;
+  severity: string;
+  detected_at: string;
+};
 
 export default function AppDashboard() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shadowCopies, setShadowCopies] = useState<ShadowCopy[]>([]);
+  const [shadowLoading, setShadowLoading] = useState(false);
+  const [shadowError, setShadowError] = useState<string | null>(null);
+
+  const loadShadowCopies = async (id: string) => {
+    setShadowLoading(true);
+    setShadowError(null);
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/shadow-copies/${id}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Unable to fetch shadow copies");
+      }
+
+      const data = await response.json();
+      setShadowCopies(data.shadowCopies || []);
+    } catch (err) {
+      setShadowError(
+        err instanceof Error ? err.message : "Failed to load shadow copies",
+      );
+    } finally {
+      setShadowLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!sessionId) return;
+    loadShadowCopies(sessionId);
+  }, [sessionId]);
 
   const handleStartAudit = async () => {
     setScanning(true);
     setError(null);
+    setShadowCopies([]);
 
     try {
       const response = await fetch("http://localhost:3001/api/scan", {
@@ -99,6 +150,11 @@ export default function AppDashboard() {
           </div>
         ) : (
           <div className="space-y-16">
+            <ShadowCopyPanel
+              shadowCopies={shadowCopies}
+              loading={shadowLoading}
+              error={shadowError}
+            />
             <TrackerMap sessionId={sessionId} />
             <ExifWalk sessionId={sessionId} />
             <PrivacyDebtHeatmap />
@@ -110,3 +166,4 @@ export default function AppDashboard() {
     </main>
   );
 }
+
