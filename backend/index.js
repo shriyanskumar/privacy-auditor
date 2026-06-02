@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const os = require("os");
+const fs = require("fs");
 const db = require("./db");
 const { runScan } = require("./scanner/filesystemScanner");
 const { analyzeTrackers } = require("./scanner/trackerAnalyzer");
@@ -60,14 +62,11 @@ const formatRelativeTime = (timestamp) => {
 
 const getFolderName = (filePath) => {
   if (!filePath) return "Other";
-  const normalized = filePath.replace(/\//g, "\\");
-  const match = normalized.match(/^[a-zA-Z]:\\Users\\[^\\]+\\([^\\]+)/i);
-  if (!match) {
-    return "Other";
-  }
-
-  const rootFolder = match[1].toLowerCase();
-  switch (rootFolder) {
+  const normalized = filePath.replace(/\\/g, "/");
+  const home = os.homedir().replace(/\\/g, "/");
+  const relative = normalized.replace(home + "/", "");
+  const topFolder = relative.split("/")[0]?.toLowerCase();
+  switch (topFolder) {
     case "downloads":
       return "Downloads";
     case "documents":
@@ -77,6 +76,10 @@ const getFolderName = (filePath) => {
     case "pictures":
     case "my pictures":
       return "Pictures";
+    case "videos":
+      return "Videos";
+    case "music":
+      return "Music";
     case "projects":
       return "Projects";
     default:
@@ -98,27 +101,50 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "PrivyScan backend running" });
 });
 
-// Start a scan
+// Start a scan dynamically across platforms
 app.post("/api/scan", async (req, res) => {
   try {
-    let paths = req.body?.paths;
+    const home = os.homedir();
 
-    if (!paths || paths.length === 0) {
-      const userProfile = process.env.USERPROFILE;
-      paths = [
-        `${userProfile}\\Downloads`,
-        `${userProfile}\\Documents`,
-        `${userProfile}\\Desktop`,
-        `${userProfile}\\Pictures`,
-      ];
-    }
+    const commonFolders = [
+      "Downloads",
+      "Documents",
+      "Pictures",
+      "Desktop",
+      "Videos",
+      "Music",
+    ];
 
-    const sessionId = await runScan(paths);
-    res.json({ sessionId });
+    const defaultPaths = commonFolders
+      .map((folder) => path.join(home, folder))
+      .filter((p) => fs.existsSync(p));
+
+    const { paths } = req.body;
+    const scanPaths = paths && paths.length > 0 ? paths : defaultPaths;
+
+    const sessionId = await runScan(scanPaths);
+    res.json({ sessionId, scannedPaths: scanPaths });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Get available default machine paths for frontend visibility
+app.get("/api/default-paths", (req, res) => {
+  const home = os.homedir();
+  const commonFolders = [
+    "Downloads",
+    "Documents",
+    "Pictures",
+    "Desktop",
+    "Videos",
+    "Music",
+  ];
+  const availablePaths = commonFolders
+    .map((folder) => ({ name: folder, path: path.join(home, folder) }))
+    .filter((p) => fs.existsSync(p.path));
+  res.json({ home, paths: availablePaths });
 });
 
 // Get results for a session
@@ -470,12 +496,14 @@ app.get("/api/shadow-copies/:sessionId", (req, res) => {
     const sessionId = req.params.sessionId;
 
     const total = db
-      .prepare("SELECT COUNT(*) AS count FROM shadow_copies WHERE session_id = ?")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM shadow_copies WHERE session_id = ?",
+      )
       .get(sessionId).count;
 
     const shadowCopies = db
       .prepare(
-        "SELECT id, file_path, filename, file_size, detected_pattern, file_extension, severity, detected_at FROM shadow_copies WHERE session_id = ? ORDER BY detected_at DESC"
+        "SELECT id, file_path, filename, file_size, detected_pattern, file_extension, severity, detected_at FROM shadow_copies WHERE session_id = ? ORDER BY detected_at DESC",
       )
       .all(sessionId);
 
