@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
 import { ResponsiveContainer, Treemap } from "recharts";
 
 interface TreemapNode {
@@ -33,6 +33,13 @@ interface DashboardData {
     lastScanned?: string;
   };
 }
+
+const HEATMAP_COLORS = {
+  HIGH: "#FF4444",
+  MEDIUM: "#FF8A00",
+  LOW: "#3B82F6",
+  UNKNOWN: "#6B7280",
+};
 
 export default function PrivacyDebtHeatmap() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -76,28 +83,59 @@ export default function PrivacyDebtHeatmap() {
     fetchDashboard();
   }, []);
 
-  const folderBreakdown = dashboard?.folderBreakdown
-    ? [...dashboard.folderBreakdown].sort((a, b) => b.debtScore - a.debtScore)
-    : [];
+  const folderBreakdown = useMemo(() => {
+    return dashboard?.folderBreakdown
+      ? [...dashboard.folderBreakdown].sort((a, b) => b.debtScore - a.debtScore)
+      : [];
+  }, [dashboard?.folderBreakdown]);
 
-  const treemapData = dashboard?.treemapData ?? [];
+  const rawTreemapData = dashboard?.treemapData ?? [];
 
-  useEffect(() => {
-    if (!selectedNode && treemapData.length > 0) {
-      const firstChild = treemapData[0]?.children?.[0];
-      if (firstChild) {
-        setSelectedNode(firstChild);
-      } else if (treemapData[0]) {
-        setSelectedNode(treemapData[0]);
+  // Flatten raw data down to leaf nodes smoothly
+  const flattenedLeafNodes = useMemo(() => {
+    if (!rawTreemapData || !Array.isArray(rawTreemapData)) return [];
+
+    const leaves: any[] = [];
+    rawTreemapData.forEach((parent) => {
+      if (parent.children && Array.isArray(parent.children)) {
+        parent.children.forEach((child) => {
+          leaves.push({
+            name: child.name,
+            value: child.value || 0,
+            folder: parent.name,
+            riskLevel: child.riskLevel || parent.riskLevel || "LOW",
+          });
+        });
+      } else {
+        leaves.push({
+          name: parent.name,
+          value: parent.value || 0,
+          folder: parent.folder || "Unassigned",
+          riskLevel: parent.riskLevel || "LOW",
+        });
       }
-    }
-  }, [treemapData, selectedNode]);
+    });
+    return leaves;
+  }, [rawTreemapData]);
 
-  const selectedFolderStats = folderBreakdown.find(
-    (folder) => folder.name === (selectedNode?.folder || selectedNode?.name),
-  ) ||
-    folderBreakdown[0] || {
-      name: "-",
+  // Sync initial selection safely
+  useEffect(() => {
+    if (flattenedLeafNodes.length > 0 && !selectedNode) {
+      setSelectedNode(flattenedLeafNodes[0]);
+    }
+  }, [flattenedLeafNodes, selectedNode]);
+
+  const selectedFolderStats = useMemo(() => {
+    const targetFolderName = selectedNode?.folder || "";
+    const found = folderBreakdown.find(
+      (folder) => folder.name === targetFolderName,
+    );
+
+    if (found) return found;
+    if (folderBreakdown.length > 0) return folderBreakdown[0];
+
+    return {
+      name: targetFolderName || "-",
       rawScore: 0,
       debtScore: 0,
       screenshots: 0,
@@ -105,74 +143,70 @@ export default function PrivacyDebtHeatmap() {
       documents: 0,
       sensitiveFiles: 0,
       gpsCount: 0,
-      riskLevel: "LOW",
+      riskLevel: "LOW" as const,
     };
+  }, [folderBreakdown, selectedNode]);
 
   const getRiskColor = (riskLevel: string) =>
     riskLevel === "HIGH"
       ? "#FF4444"
       : riskLevel === "MEDIUM"
         ? "#FF8A00"
-        : "#00C48C";
+        : "#3B82F6";
 
-  // Explicit risk mapping for visual tracking inside the Heatmap squares
-  const HEATMAP_COLORS = {
-    HIGH: "#FF4444",
-    MEDIUM: "#FF8A00",
-    LOW: "#3B82F6",
-    UNKNOWN: "#6B7280",
+  const activeInsights = useMemo(() => {
+    if (!selectedFolderStats) return null;
+    return {
+      folder: selectedFolderStats.name,
+      rawScore: selectedFolderStats.rawScore,
+      debtScore: selectedFolderStats.debtScore,
+      screenshots: selectedFolderStats.screenshots,
+      emails: selectedFolderStats.emails,
+      documents: selectedFolderStats.documents,
+      sensitiveFiles: selectedFolderStats.sensitiveFiles,
+      lastScanned: dashboard?.folderInsights?.lastScanned ?? "-",
+      riskLevel: selectedFolderStats.riskLevel,
+      summary:
+        selectedFolderStats.screenshots > 0 && selectedFolderStats.emails > 0
+          ? "Sensitive screenshots and email addresses detected."
+          : selectedFolderStats.screenshots > 0 &&
+              selectedFolderStats.gpsCount > 0
+            ? "Images containing location metadata detected."
+            : selectedFolderStats.emails > 10
+              ? "Large number of email addresses detected."
+              : selectedFolderStats.sensitiveFiles > 10
+                ? "Multiple sensitive files detected."
+                : selectedFolderStats.screenshots > 0
+                  ? "Screenshot files containing personal content detected."
+                  : selectedFolderStats.gpsCount > 0
+                    ? "GPS metadata detected in images."
+                    : selectedFolderStats.emails > 0
+                      ? "Email addresses found in this folder."
+                      : selectedFolderStats.sensitiveFiles > 0
+                        ? "Sensitive items found in this folder."
+                        : "Potential privacy risk found in this folder.",
+      recommendedAction:
+        selectedFolderStats.riskLevel === "HIGH"
+          ? "Review and purge exposed files"
+          : selectedFolderStats.riskLevel === "MEDIUM"
+            ? "Review sensitive files"
+            : "No immediate action required",
+    };
+  }, [selectedFolderStats, dashboard]);
+
+  const fallbackInsights = activeInsights || {
+    folder: "-",
+    rawScore: 0,
+    debtScore: 0,
+    screenshots: 0,
+    emails: 0,
+    documents: 0,
+    sensitiveFiles: 0,
+    lastScanned: "-",
+    riskLevel: "LOW",
+    summary: "-",
+    recommendedAction: "-",
   };
-
-  const folderInsights = selectedFolderStats
-    ? {
-        folder: selectedFolderStats.name,
-        rawScore: selectedFolderStats.rawScore,
-        debtScore: selectedFolderStats.debtScore,
-        screenshots: selectedFolderStats.screenshots,
-        emails: selectedFolderStats.emails,
-        documents: selectedFolderStats.documents,
-        sensitiveFiles: selectedFolderStats.sensitiveFiles,
-        lastScanned: dashboard?.folderInsights?.lastScanned ?? "-",
-        riskLevel: selectedFolderStats.riskLevel,
-        summary:
-          selectedFolderStats.screenshots > 0 && selectedFolderStats.emails > 0
-            ? "Sensitive screenshots and email addresses detected."
-            : selectedFolderStats.screenshots > 0 &&
-                selectedFolderStats.gpsCount > 0
-              ? "Images containing location metadata detected."
-              : selectedFolderStats.emails > 10
-                ? "Large number of email addresses detected."
-                : selectedFolderStats.sensitiveFiles > 10
-                  ? "Multiple sensitive files detected."
-                  : selectedFolderStats.screenshots > 0
-                    ? "Screenshot files containing personal content detected."
-                    : selectedFolderStats.gpsCount > 0
-                      ? "GPS metadata detected in images."
-                      : selectedFolderStats.emails > 0
-                        ? "Email addresses found in this folder."
-                        : selectedFolderStats.sensitiveFiles > 0
-                          ? "Sensitive items found in this folder."
-                          : "Potential privacy risk found in this folder.",
-        recommendedAction:
-          selectedFolderStats.riskLevel === "HIGH"
-            ? "Review and purge exposed files"
-            : selectedFolderStats.riskLevel === "MEDIUM"
-              ? "Review sensitive files"
-              : "No immediate action required",
-      }
-    : {
-        folder: "-",
-        rawScore: 0,
-        debtScore: 0,
-        screenshots: 0,
-        emails: 0,
-        documents: 0,
-        sensitiveFiles: 0,
-        lastScanned: "-",
-        riskLevel: "LOW",
-        summary: "-",
-        recommendedAction: "-",
-      };
 
   return (
     <div
@@ -187,7 +221,6 @@ export default function PrivacyDebtHeatmap() {
         fontFamily: "sans-serif",
       }}
     >
-      {" "}
       <h1
         style={{
           color: "#FFF",
@@ -198,6 +231,7 @@ export default function PrivacyDebtHeatmap() {
       >
         PRIVACY DEBT HEATMAP
       </h1>
+
       {loading ? (
         <div style={{ color: "#FFF", marginBottom: "24px", fontSize: "16px" }}>
           Loading scan results...
@@ -213,6 +247,7 @@ export default function PrivacyDebtHeatmap() {
           Visualize where sensitive information accumulates across your device
         </div>
       )}
+
       {/* Metric Dashboard Panel */}
       <div
         style={{
@@ -257,6 +292,7 @@ export default function PrivacyDebtHeatmap() {
           {dashboard?.riskLevel ?? "-"}
         </div>
       </div>
+
       {/* Tabs */}
       <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
         <button
@@ -296,6 +332,7 @@ export default function PrivacyDebtHeatmap() {
           Findings
         </button>
       </div>
+
       {/* Treemap Context Layout Frame */}
       <div
         style={{
@@ -320,8 +357,9 @@ export default function PrivacyDebtHeatmap() {
             letterSpacing: "0.08em",
           }}
         >
-          TREE VISUALIZATION
+          CATEGORY HEATMAP
         </div>
+
         <div
           style={{
             position: "absolute",
@@ -331,10 +369,13 @@ export default function PrivacyDebtHeatmap() {
             fontSize: "13px",
           }}
         >
-          Home › {selectedNode?.folder || selectedNode?.name || "Overview"}
+          Home &gt;{" "}
+          {selectedNode
+            ? `${selectedNode.folder} &gt; ${selectedNode.name}`
+            : "Overview"}
         </div>
 
-        {/* Clean, Horizontal Risk Color Legend Inline Header Placement */}
+        {/* Legend */}
         <div
           style={{
             position: "absolute",
@@ -343,6 +384,7 @@ export default function PrivacyDebtHeatmap() {
             display: "flex",
             alignItems: "center",
             gap: "16px",
+            zIndex: 10,
           }}
         >
           <span
@@ -398,10 +440,62 @@ export default function PrivacyDebtHeatmap() {
           </div>
         </div>
 
+        {/* Current Path Subheading Metadata */}
         <div
           style={{
             position: "absolute",
             top: "80px",
+            left: "20px",
+            right: "20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: "#111115",
+            padding: "10px 14px",
+            borderRadius: "6px",
+            border: "1px solid rgba(255,107,0,0.15)",
+            fontSize: "13px",
+            color: "#A1A1AA",
+          }}
+        >
+          <div>
+            Current Folder:{" "}
+            <span
+              style={{ color: "#FFF", fontWeight: "500", marginLeft: "4px" }}
+            >
+              {selectedNode?.folder || "-"}
+            </span>
+          </div>
+          <div>
+            Current Category:{" "}
+            <span
+              style={{ color: "#FFF", fontWeight: "500", marginLeft: "4px" }}
+            >
+              {selectedNode?.name || "-"}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            Risk Level:
+            <span
+              style={{
+                color: getRiskColor(selectedNode?.riskLevel || "LOW"),
+                fontWeight: "bold",
+                fontSize: "11px",
+                backgroundColor: `${getRiskColor(selectedNode?.riskLevel || "LOW")}15`,
+                padding: "2px 8px",
+                borderRadius: "4px",
+              }}
+            >
+              {selectedNode?.riskLevel || "LOW"}
+            </span>
+          </div>
+        </div>
+
+        {/* Main Workspace Treemap Container */}
+        <div
+          style={{
+            position: "absolute",
+            top: "135px",
             left: "20px",
             right: "20px",
             bottom: "20px",
@@ -411,7 +505,7 @@ export default function PrivacyDebtHeatmap() {
             padding: "12px",
           }}
         >
-          {treemapData.length === 0 ? (
+          {flattenedLeafNodes.length === 0 ? (
             <div
               style={{
                 color: "#888",
@@ -428,10 +522,9 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{ position: "relative", width: "100%", height: "100%" }}
             >
-              {/* The Recharts Engine Core Layout */}
               <ResponsiveContainer width="100%" height="100%">
                 <Treemap
-                  data={treemapData} // Flatten out layout context nesting directly
+                  data={flattenedLeafNodes}
                   dataKey="value"
                   aspectRatio={16 / 9}
                   isAnimationActive={false}
@@ -443,24 +536,26 @@ export default function PrivacyDebtHeatmap() {
                       width,
                       height,
                       index,
-                      depth,
-                      payload,
                       name,
                       value,
+                      folder,
+                      riskLevel,
                     } = props;
 
                     if (width <= 0 || height <= 0) return null;
 
-                    // Direct resolution fallback engine map verification
                     const nodeRisk: keyof typeof HEATMAP_COLORS =
-                      payload?.riskLevel || props?.riskLevel || "LOW";
+                      riskLevel || "LOW";
                     const fill =
                       HEATMAP_COLORS[nodeRisk] || HEATMAP_COLORS.UNKNOWN;
                     const itemKey = `${name}-${index}-${value}`;
                     const hovered = hoverKey === itemKey;
 
+                    const shouldRenderText = width >= 80 && height >= 40;
+
                     return (
                       <g
+                        key={itemKey}
                         transform={`translate(${x}, ${y})`}
                         onMouseEnter={(e) => {
                           setHoverKey(itemKey);
@@ -468,12 +563,7 @@ export default function PrivacyDebtHeatmap() {
                             visible: true,
                             x: e.clientX,
                             y: e.clientY,
-                            data: {
-                              name,
-                              value,
-                              riskLevel: nodeRisk,
-                              folder: payload?.folder,
-                            },
+                            data: { name, value, riskLevel: nodeRisk, folder },
                           });
                         }}
                         onMouseMove={(e) =>
@@ -492,7 +582,7 @@ export default function PrivacyDebtHeatmap() {
                             name,
                             value,
                             riskLevel: nodeRisk,
-                            folder: payload?.folder,
+                            folder,
                           });
                         }}
                         style={{ cursor: "pointer" }}
@@ -505,7 +595,7 @@ export default function PrivacyDebtHeatmap() {
                           stroke="#111"
                           strokeWidth={hovered ? 2 : 1}
                         />
-                        {width > 60 && height > 35 && (
+                        {shouldRenderText && (
                           <>
                             <text
                               x={8}
@@ -517,18 +607,16 @@ export default function PrivacyDebtHeatmap() {
                             >
                               {name}
                             </text>
-                            {height > 50 && (
-                              <text
-                                x={8}
-                                y={36}
-                                fill="rgba(255,255,255,0.85)"
-                                fontSize={11}
-                                fontWeight={600}
-                                style={{ pointerEvents: "none" }}
-                              >
-                                {value} items
-                              </text>
-                            )}
+                            <text
+                              x={8}
+                              y={36}
+                              fill="rgba(255,255,255,0.85)"
+                              fontSize={11}
+                              fontWeight={600}
+                              style={{ pointerEvents: "none" }}
+                            >
+                              {value} items
+                            </text>
                           </>
                         )}
                       </g>
@@ -537,7 +625,7 @@ export default function PrivacyDebtHeatmap() {
                 />
               </ResponsiveContainer>
 
-              {/* Fixed Tooltip Node Mount portal */}
+              {/* Tooltip Portal */}
               {tooltip.visible && tooltip.data && (
                 <div
                   style={{
@@ -550,7 +638,7 @@ export default function PrivacyDebtHeatmap() {
                     borderRadius: "8px",
                     pointerEvents: "none",
                     zIndex: 9999,
-                    border: "1px solid #FF6B00",
+                    border: `1px solid ${getRiskColor(tooltip.data.riskLevel)}`,
                     boxShadow: "0px 8px 24px rgba(0,0,0,0.7)",
                     fontFamily: "sans-serif",
                   }}
@@ -600,6 +688,7 @@ export default function PrivacyDebtHeatmap() {
           )}
         </div>
       </div>
+
       {/* Grid Panels */}
       <div
         style={{
@@ -608,7 +697,7 @@ export default function PrivacyDebtHeatmap() {
           gap: "24px",
         }}
       >
-        {/* Left Stats Panel */}
+        {/* Left Folder Insights Panel */}
         <div
           style={{
             minHeight: "180px",
@@ -636,7 +725,7 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{ color: "#FF4444", fontWeight: 600, fontSize: "18px" }}
             >
-              {folderInsights.folder}
+              {fallbackInsights.folder}
             </div>
             <div
               style={{
@@ -654,15 +743,15 @@ export default function PrivacyDebtHeatmap() {
                 marginBottom: "16px",
               }}
             >
-              Debt Score: {folderInsights.debtScore}
+              Debt Score: {fallbackInsights.debtScore}
             </div>
 
             <div
               style={{ color: "#D5D5D5", fontSize: "14px", lineHeight: 1.8 }}
             >
-              <div>📸 {folderInsights.screenshots} Screenshots</div>
-              <div>📧 {folderInsights.emails} Email Addresses</div>
-              <div>📄 {folderInsights.documents} Documents</div>
+              <div>📸 {fallbackInsights.screenshots} Screenshots</div>
+              <div>📧 {fallbackInsights.emails} Email Addresses</div>
+              <div>📄 {fallbackInsights.documents} Documents</div>
               <div>🔐 {selectedNode?.value ?? 0} Items Scanned</div>
               <div>⚠️ Risk: {selectedNode?.riskLevel ?? "LOW"}</div>
             </div>
@@ -678,13 +767,13 @@ export default function PrivacyDebtHeatmap() {
               <div>
                 <span style={{ color: "#8B8B8B" }}>Last Scanned:</span>{" "}
                 <span style={{ color: "#FFF" }}>
-                  {folderInsights.lastScanned}
+                  {fallbackInsights.lastScanned}
                 </span>
               </div>
               <div>
                 <span style={{ color: "#8B8B8B" }}>Sensitive Files:</span>{" "}
                 <span style={{ color: "#FF4444" }}>
-                  {folderInsights.sensitiveFiles}
+                  {fallbackInsights.sensitiveFiles}
                 </span>
               </div>
             </div>
@@ -693,14 +782,14 @@ export default function PrivacyDebtHeatmap() {
               style={{
                 borderTop: "1px solid rgba(255,107,0,0.12)",
                 marginTop: "20px",
-                paddingTop: "20px",
+                padding: "20px 0 0 0",
               }}
             >
               <div
                 style={{
                   fontSize: "13px",
                   fontWeight: 500,
-                  marginBottom: "16px",
+                  marginBottom: "12px",
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   color: "rgba(255,107,0,0.8)",
@@ -709,35 +798,31 @@ export default function PrivacyDebtHeatmap() {
                 Threat Summary
               </div>
               <div style={{ color: "#FFF", fontSize: "14px", lineHeight: 1.6 }}>
-                {folderInsights.summary}
-              </div>
-              <div
-                style={{
-                  marginTop: "16px",
-                  color: "#FFB470",
-                  fontWeight: 600,
-                  fontSize: "13px",
-                }}
-              >
-                Risk Level: {folderInsights.riskLevel}
+                {fallbackInsights.summary}
               </div>
               <div
                 style={{
                   marginTop: "12px",
                   color: "#FFB470",
+                  fontWeight: 600,
                   fontSize: "13px",
                 }}
               >
+                Risk Level: {fallbackInsights.riskLevel}
+              </div>
+              <div
+                style={{ marginTop: "6px", color: "#FFB470", fontSize: "13px" }}
+              >
                 Recommended Action:{" "}
                 <span style={{ color: "rgba(255,180,112,0.7)" }}>
-                  {folderInsights.recommendedAction}
+                  {fallbackInsights.recommendedAction}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Distribution Sidebar */}
+        {/* Right Sidebar */}
         <div
           style={{
             minHeight: "180px",
@@ -804,7 +889,7 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "12px 0",
                 borderBottom: "1px solid rgba(255,107,0,0.12)",
               }}
             >
@@ -818,7 +903,7 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "12px 0",
                 borderBottom: "1px solid rgba(255,107,0,0.12)",
               }}
             >
@@ -832,7 +917,7 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{
                 width: "100%",
-                padding: "12px",
+                padding: "12px 0",
                 borderBottom: "1px solid rgba(255,107,0,0.12)",
               }}
             >
