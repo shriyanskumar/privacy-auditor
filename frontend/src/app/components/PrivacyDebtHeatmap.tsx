@@ -187,6 +187,7 @@ export default function PrivacyDebtHeatmap() {
         fontFamily: "sans-serif",
       }}
     >
+      {" "}
       <h1
         style={{
           color: "#FFF",
@@ -197,7 +198,6 @@ export default function PrivacyDebtHeatmap() {
       >
         PRIVACY DEBT HEATMAP
       </h1>
-
       {loading ? (
         <div style={{ color: "#FFF", marginBottom: "24px", fontSize: "16px" }}>
           Loading scan results...
@@ -213,7 +213,6 @@ export default function PrivacyDebtHeatmap() {
           Visualize where sensitive information accumulates across your device
         </div>
       )}
-
       {/* Metric Dashboard Panel */}
       <div
         style={{
@@ -258,7 +257,6 @@ export default function PrivacyDebtHeatmap() {
           {dashboard?.riskLevel ?? "-"}
         </div>
       </div>
-
       {/* Tabs */}
       <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
         <button
@@ -298,7 +296,6 @@ export default function PrivacyDebtHeatmap() {
           Findings
         </button>
       </div>
-
       {/* Treemap Context Layout Frame */}
       <div
         style={{
@@ -337,6 +334,70 @@ export default function PrivacyDebtHeatmap() {
           Home › {selectedNode?.folder || selectedNode?.name || "Overview"}
         </div>
 
+        {/* Clean, Horizontal Risk Color Legend Inline Header Placement */}
+        <div
+          style={{
+            position: "absolute",
+            top: "45px",
+            right: "20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <span
+            style={{
+              color: "#8B8B8B",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+            }}
+          >
+            RISK LEVEL:
+          </span>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  background: "#FF4444",
+                  borderRadius: 2,
+                }}
+              />
+              <span style={{ color: "#FFF", fontSize: 11, fontWeight: 500 }}>
+                HIGH
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  background: "#FF8A00",
+                  borderRadius: 2,
+                }}
+              />
+              <span style={{ color: "#FFF", fontSize: 11, fontWeight: 500 }}>
+                MEDIUM
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <div
+                style={{
+                  width: 10,
+                  height: 10,
+                  background: "#3B82F6",
+                  borderRadius: 2,
+                }}
+              />
+              <span style={{ color: "#FFF", fontSize: 11, fontWeight: 500 }}>
+                LOW
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div
           style={{
             position: "absolute",
@@ -367,78 +428,6 @@ export default function PrivacyDebtHeatmap() {
             <div
               style={{ position: "relative", width: "100%", height: "100%" }}
             >
-              {/* Floating Color Legend */}
-              <div
-                style={{ position: "absolute", top: 8, right: 12, zIndex: 10 }}
-              >
-                <div
-                  style={{
-                    background: "#1A1A1A",
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <div
-                    style={{
-                      color: "#FFF",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      marginBottom: 6,
-                    }}
-                  >
-                    LEGEND (RISK)
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", gap: 6, alignItems: "center" }}
-                    >
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          background: "#FF4444",
-                          borderRadius: 2,
-                        }}
-                      />
-                      <div style={{ color: "#FFF", fontSize: 11 }}>HIGH</div>
-                    </div>
-                    <div
-                      style={{ display: "flex", gap: 6, alignItems: "center" }}
-                    >
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          background: "#FF8A00",
-                          borderRadius: 2,
-                        }}
-                      />
-                      <div style={{ color: "#FFF", fontSize: 11 }}>MEDIUM</div>
-                    </div>
-                    <div
-                      style={{ display: "flex", gap: 6, alignItems: "center" }}
-                    >
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          background: "#3B82F6",
-                          borderRadius: 2,
-                        }}
-                      />
-                      <div style={{ color: "#FFF", fontSize: 11 }}>LOW</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* The Recharts Engine Core Layout */}
               <ResponsiveContainer width="100%" height="100%">
                 <Treemap
@@ -611,7 +600,6 @@ export default function PrivacyDebtHeatmap() {
           )}
         </div>
       </div>
-
       {/* Grid Panels */}
       <div
         style={{
