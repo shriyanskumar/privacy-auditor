@@ -48,6 +48,9 @@ export function TrackerMap({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // 1. Log Session ID to confirm the parent component is passing a valid value
+    console.log("TrackerMap — Active propSessionId:", propSessionId);
+
     if (!propSessionId) {
       setData(null);
       setLoading(false);
@@ -57,18 +60,30 @@ export function TrackerMap({
     setError(null);
     setLoading(true);
 
-    fetch(`http://localhost:3001/api/trackers/${propSessionId}`)
+    // Dynamic API resolution using Vite environment variables to avoid machine-specific hardcoding
+    const API_BASE_URL =
+      import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const targetUrl = `${API_BASE_URL}/api/trackers/${propSessionId}`;
+
+    console.log("TrackerMap — Fetching from URL:", targetUrl);
+
+    fetch(targetUrl)
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || "Unable to load tracker data");
+          throw new Error(
+            body.error || `Server responded with status: ${res.status}`,
+          );
         }
         return res.json();
       })
       .then((payload: TrackerData) => {
+        // 2. Log payload to verify if backend is returning structural empty objects vs populated data
+        console.log("TrackerMap — RECEIVED API PAYLOAD:", payload);
         setData(payload);
       })
       .catch((err) => {
+        console.error("TrackerMap — FETCH ERROR:", err);
         setError(err.message || "Failed to fetch tracker data");
       })
       .finally(() => {
@@ -354,8 +369,6 @@ export function TrackerMap({
     <div
       style={{
         width: "100%",
-        // maxWidth: "1200px",
-        //margin: "0 auto",
         background: "#0A0A0A",
         border: "1px solid #FF6B00",
         borderRadius: "16px",
@@ -449,7 +462,6 @@ export function TrackerMap({
               gap: "24px",
             }}
           >
-            {" "}
             <div
               className="rounded-[16px] bg-white/5 p-6"
               style={{
@@ -572,7 +584,7 @@ export function TrackerMap({
                 <div
                   className="relative w-full rounded-[16px]"
                   style={{
-                    height: "650px", // was 550px
+                    height: "650px",
                     overflow: "visible",
                   }}
                   ref={networkContainerRef}
