@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TrackerMap } from "../app/components/TrackerMap";
 import ExifWalk from "../app/components/ExifWalk";
+import PrivacyDebtHeatmap from "../app/components/PrivacyDebtHeatmap";
 import { Footer } from "../app/components/Footer";
 
 export default function AppDashboard() {
@@ -100,6 +101,7 @@ export default function AppDashboard() {
           <div className="space-y-16">
             <TrackerMap sessionId={sessionId} />
             <ExifWalk sessionId={sessionId} />
+            <PrivacyDebtHeatmap />
           </div>
         )}
       </div>

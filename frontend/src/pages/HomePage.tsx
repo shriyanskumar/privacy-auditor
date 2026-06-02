@@ -16,7 +16,8 @@ export default function HomePage() {
       const navbarHeight = id === "demo" ? 250 : 80;
       const element = document.getElementById(id);
       if (element) {
-        const top = element.getBoundingClientRect().top + window.scrollY - navbarHeight;
+        const top =
+          element.getBoundingClientRect().top + window.scrollY - navbarHeight;
         window.scrollTo({ top, behavior: "smooth" });
       }
     }

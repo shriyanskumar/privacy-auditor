@@ -92,6 +92,20 @@ async function runScan(directories) {
           }
         }
 
+        // Screenshot detection
+        if (IMAGE_EXTENSIONS.includes(ext)) {
+          const isScreenshot =
+            /screenshot|screen shot|screen_capture/i.test(name) ||
+            /screenshots/i.test(filePath);
+          if (isScreenshot) {
+            db.prepare(
+              `INSERT INTO findings 
+               (session_id, file_path, finding_type, severity, snippet) 
+               VALUES (?, ?, ?, ?, ?)`,
+            ).run(sessionId, filePath, "screenshot", "medium", name);
+          }
+        }
+
         // EXIF scan
         if (IMAGE_EXTENSIONS.includes(ext)) {
           await scanExif(filePath, sessionId);

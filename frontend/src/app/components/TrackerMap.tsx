@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
-type TrackerNode = {
+type TrackerNode = d3.SimulationNodeDatum & {
   id: string;
   label: string;
   type: "tracker" | "domain";
@@ -11,10 +11,7 @@ type TrackerNode = {
   browser?: string;
 };
 
-type TrackerEdge = {
-  source: string;
-  target: string;
-};
+type TrackerEdge = d3.SimulationLinkDatum<TrackerNode>;
 
 type TrackerSummary = {
   totalTrackers: number;
@@ -177,6 +174,25 @@ export function TrackerMap({
       .join("line")
       .attr("stroke-width", 1);
 
+    const simulation = d3
+      .forceSimulation<TrackerNode>(data.nodes)
+      .force(
+        "link",
+        d3
+          .forceLink<TrackerNode, TrackerEdge>(links)
+          .id((d) => d.id)
+          .distance(80),
+      )
+      .force("charge", d3.forceManyBody().strength(-42))
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("x", d3.forceX(width / 2).strength(0.02))
+      .force("y", d3.forceY(height / 2).strength(0.02))
+      .force(
+        "collision",
+        d3
+          .forceCollide<TrackerNode>()
+          .radius((d) => (d.type === "tracker" ? 34 : 14)),
+      );
     const node = svg
       .append("g")
       .selectAll("circle")
@@ -190,7 +206,7 @@ export function TrackerMap({
       .attr("stroke-width", 0.75)
       .call(
         d3
-          .drag<SVGCircleElement, TrackerNode>()
+          .drag<any, any>()
           .on("start", (event, d) => {
             if (!event.active) simulation.alphaTarget(0.3).restart();
             d.fx = d.x;
@@ -246,26 +262,6 @@ export function TrackerMap({
       .on("mouseover", handleMouseOver)
       .on("mousemove", handleMouseOver)
       .on("mouseout", handleMouseOut);
-
-    const simulation = d3
-      .forceSimulation<TrackerNode>(data.nodes)
-      .force(
-        "link",
-        d3
-          .forceLink<TrackerNode, TrackerEdge>(links)
-          .id((d) => d.id)
-          .distance(80),
-      )
-      .force("charge", d3.forceManyBody().strength(-42))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("x", d3.forceX(width / 2).strength(0.02))
-      .force("y", d3.forceY(height / 2).strength(0.02))
-      .force(
-        "collision",
-        d3
-          .forceCollide<TrackerNode>()
-          .radius((d) => (d.type === "tracker" ? 34 : 14)),
-      );
 
     simulation.on("tick", () => {
       node.each((d) => {
@@ -795,7 +791,7 @@ export function TrackerMap({
                         highRiskTrackers.slice(0, 6).map((tracker) => (
                           <div
                             key={tracker.id}
-                            className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.06] py-3 last:border-b-0\"
+                            className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.06] py-3 last:border-b-0"
                           >
                             <div className="min-w-0">
                               <div className="text-sm font-semibold text-white truncate">

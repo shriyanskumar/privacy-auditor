@@ -16,7 +16,8 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [activeLink, setActiveLink] = useState("home");
   const navTextStyle = {
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace",
     letterSpacing: "4px",
   };
 
@@ -71,7 +72,8 @@ export function Navbar() {
     const navbarHeight = id === "demo" ? 250 : 80;
     const element = document.getElementById(id);
     if (element) {
-      const top = element.getBoundingClientRect().top + window.scrollY - navbarHeight;
+      const top =
+        element.getBoundingClientRect().top + window.scrollY - navbarHeight;
       window.scrollTo({ top, behavior: "smooth" });
     }
   };

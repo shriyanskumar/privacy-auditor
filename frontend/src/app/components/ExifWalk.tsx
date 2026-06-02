@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
 import worldData from "../../data/world.json";
+import { Globe, Search } from "lucide-react";
 
 interface ExifWalkProps {
-  sessionId: string;
+  sessionId: string | null;
 }
 
 export default function ExifWalk({ sessionId }: ExifWalkProps) {
@@ -88,7 +89,7 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
     const mapGroup = svg.append("g");
     const markerLayer = svg.append("g");
     const width = 1200;
-    const height = 600;
+    const height = 700;
 
     mapGroup
       .attr("viewBox", `0 0 ${width} ${height}`)
@@ -321,38 +322,99 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
       <div
         style={{
           marginBottom: "20px",
-          display: "flex",
-          gap: "12px",
+          padding: "16px",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,107,0,0.12)",
+          borderRadius: "12px",
+          color: "#BBB",
+          fontSize: "14px",
         }}
       >
-        <button
-          onClick={() => setWorldView(false)}
-          style={{
-            background: !worldView ? "#FF6B00" : "rgba(255,255,255,0.05)",
-            color: "#FFF",
-            border: "none",
-            borderRadius: "8px",
-            padding: "8px 14px",
-            cursor: "pointer",
-          }}
-        >
-          Auto Zoom
-        </button>
-
-        <button
-          onClick={() => setWorldView(true)}
-          style={{
-            background: worldView ? "#FF6B00" : "rgba(255,255,255,0.05)",
-            color: "#FFF",
-            border: "none",
-            borderRadius: "8px",
-            padding: "8px 14px",
-            cursor: "pointer",
-          }}
-        >
-          World View
-        </button>
+        {gpsTagged > 0 ? (
+          <>
+            This device contains <b>{gpsTagged}</b> GPS-tagged images from{" "}
+            <b>{gpsTagged}</b> recorded locations and
+            <b> {devicesFound}</b> devices.
+          </>
+        ) : (
+          <>No GPS-tagged images detected.</>
+        )}
       </div>
+
+      {/* MAP SECTION */}
+
+      <div
+        style={{
+          position: "relative",
+          marginBottom: "32px",
+          marginTop: "12px",
+        }}
+      >
+        {/* Controls */}
+        <div
+          style={{
+            position: "absolute",
+            top: "16px",
+            left: "16px",
+            zIndex: 1000,
+            display: "flex",
+            gap: "10px",
+            pointerEvents: "auto",
+          }}
+        >
+          <button
+            onClick={() => setWorldView(false)}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              background: !worldView
+                ? "rgba(255,107,0,0.12)"
+                : "rgba(255,255,255,0.04)",
+              border: !worldView
+                ? "1px solid rgba(255,107,0,0.45)"
+                : "1px solid rgba(255,255,255,0.08)",
+              color: !worldView ? "#FFB470" : "#AAA",
+              backdropFilter: "blur(12px)",
+              boxShadow: !worldView ? "0 0 0 1px rgba(255,107,0,0.15)" : "none",
+            }}
+          >
+            <Search size={18} />
+          </button>
+
+          <button
+            onClick={() => setWorldView(true)}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "10px",
+              cursor: "pointer",
+              background: worldView
+                ? "rgba(255,107,0,0.12)"
+                : "rgba(255,255,255,0.04)",
+              border: worldView
+                ? "1px solid rgba(255,107,0,0.45)"
+                : "1px solid rgba(255,255,255,0.08)",
+              color: worldView ? "#FFB470" : "#AAA",
+              backdropFilter: "blur(12px)",
+              boxShadow: worldView ? "0 0 0 1px rgba(255,107,0,0.15)" : "none",
+            }}
+          >
+            <Globe size={18} />
+          </button>
+        </div>
+
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="700"
+          style={{
+            borderRadius: "16px",
+            background: "#050505",
+            border: "1px solid rgba(255,107,0,0.12)",
+          }}
+        />
+      </div>
+
       <div
         style={{
           display: "flex",
@@ -495,27 +557,6 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
           background: "rgba(255,255,255,0.03)",
           border: "1px solid rgba(255,107,0,0.12)",
           borderRadius: "12px",
-          color: "#BBB",
-          fontSize: "14px",
-        }}
-      >
-        {gpsTagged > 0 ? (
-          <>
-            This device contains <b>{gpsTagged}</b> GPS-tagged images from{" "}
-            <b>{gpsTagged}</b> recorded locations and
-            <b> {devicesFound}</b> devices.
-          </>
-        ) : (
-          <>No GPS-tagged images detected.</>
-        )}
-      </div>
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "16px",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,107,0,0.12)",
-          borderRadius: "12px",
         }}
       >
         <div
@@ -574,7 +615,7 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
           </div>
         ))}
       </div>
-      <svg ref={svgRef} width="100%" height="600" />
+
       {tooltip.visible && tooltip.location && (
         <div
           style={{
@@ -674,7 +715,6 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
           EXIF v2.3
         </div>
       </div>
-      ;
     </div>
   );
 }
