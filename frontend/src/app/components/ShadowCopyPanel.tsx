@@ -20,86 +20,29 @@ function ScrambledText({
   return <span className={className}>{text}</span>;
 }
 
-// Raw Metric Telemetry
-const summaryMetrics = {
-  totalSize: "620.64 MB",
-  detectedPatterns: 6,
+// 1. Define the structural shape of your backend file items
+export type ShadowCopyItem = {
+  id: number | string;
+  filename: string;
+  pattern: string;
+  copies: number;
+  size: string; // expected format: "450 KB" or similar
+  extension: string;
+  timestamp: string;
 };
 
-const patternBreakdown = [
-  { label: "duplicate", count: 150 },
-  { label: "Numbered copy", count: 38 },
-  { label: "Final version", count: 1 },
-  { label: "Date suffix", count: 30 },
-  { label: "Version number", count: 3 },
-  { label: "Copy marker", count: 1 },
-];
+// 2. Define the explicit Props interface for the panel
+interface ShadowCopyPanelProps {
+  shadowCopies: ShadowCopyItem[];
+  loading?: boolean;
+  error?: string | null;
+}
 
-const actualBaseNames = [
-  "usr_credentials_backup",
-  "identity_token_map",
-  "client_routing_table",
-  "analytics_metrics_stale",
-  "auth_session_store",
-  "financial_ledger_export",
-  "user_profile_manifest",
-  "private_key_stash",
-  "db_cluster_config",
-  "env_descriptor_bak",
-  "api_endpoint_cache",
-  "security_audit_log",
-  "session_token_dump",
-  "network_topology_map",
-];
-
-const mockFilesList = Array.from({ length: 223 }, (_, i) => {
-  const baseName = actualBaseNames[i % actualBaseNames.length];
-  const copiesCount = i % 5 === 0 ? 3 : 2;
-
-  const extTypes = [".png", ".jpg", ".pdf", ".csv", ".json", ".xml", ".txt"];
-  const extension = extTypes[i % extTypes.length];
-
-  let synthesizedName = `${baseName}_copy${extension}`;
-  let pattern = "DUPLICATE";
-
-  if (i % 4 === 0) {
-    synthesizedName = `${baseName} (${(i % 3) + 1})${extension}`;
-    pattern = "NUMBERED COPY";
-  } else if (i % 7 === 0) {
-    synthesizedName = `${baseName}_2026_06_02${extension}`;
-    pattern = "DATE SUFFIX";
-  } else if (i === 42) {
-    synthesizedName = `${baseName}_v2.4_final_final${extension}`;
-    pattern = "FINAL VERSION";
-  } else if (i % 15 === 0) {
-    synthesizedName = `${baseName}_v${(i % 3) + 1}${extension}`;
-    pattern = "VERSION NUMBER";
-  }
-
-  const patternSizeRange = {
-    DUPLICATE: [60, 150],
-    "NUMBERED COPY": [450, 900],
-    "DATE SUFFIX": [200, 500],
-    "FINAL VERSION": [900, 2000],
-    "VERSION NUMBER": [600, 1400],
-  };
-  const [sMin, sMax] = patternSizeRange[
-    pattern as keyof typeof patternSizeRange
-  ] || [100, 300];
-  const fileSize = sMin + ((i * 17) % (sMax - sMin));
-
-  return {
-    id: i,
-    filename: synthesizedName,
-    pattern: pattern,
-    copies: copiesCount,
-    size: `${fileSize} KB`,
-    extension: extension,
-    timestamp: "6/2/2026, 7:03:21 PM",
-  };
-});
-
-export function ShadowCopyPanel() {
+export function ShadowCopyPanel({
+  shadowCopies = [],
+  loading = false,
+  error = null,
+}: ShadowCopyPanelProps) {
   const [selectedExtension, setSelectedExtension] = useState<string | null>(
     null,
   );
@@ -108,7 +51,7 @@ export function ShadowCopyPanel() {
   const [isPatternDropdownOpen, setIsPatternDropdownOpen] = useState(false);
   const [isExtDropdownOpen, setIsExtDropdownOpen] = useState(false);
 
-  // Left view sub-toggle (radar vs summary metrics metrics)
+  // Left view sub-toggle (radar vs summary metrics)
   const [activeLeftTab, setActiveLeftTab] = useState<"radar" | "summary">(
     "radar",
   );
@@ -119,26 +62,62 @@ export function ShadowCopyPanel() {
     rawSizeKB: number;
   } | null>(null);
 
+  // 3. Compute top cards metrics dynamically from live dataset
+  const summaryMetrics = useMemo(() => {
+    let totalKB = 0;
+    const distinctPatterns = new Set<string>();
+
+    shadowCopies.forEach((file) => {
+      const parsedSize = parseInt(file.size?.replace(/[^\d]/g, ""), 10) || 0;
+      totalKB += parsedSize;
+      if (file.pattern) distinctPatterns.add(file.pattern.toUpperCase());
+    });
+
+    const displaySize =
+      totalKB >= 1024
+        ? `${(totalKB / 1024).toFixed(2)} MB`
+        : `${totalKB.toFixed(1)} KB`;
+
+    return {
+      totalSize: shadowCopies.length === 0 ? "0.00 MB" : displaySize,
+      detectedPatterns: distinctPatterns.size,
+    };
+  }, [shadowCopies]);
+
+  // 4. Extract total count breakdown per pattern category dynamically
+  const patternBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    shadowCopies.forEach((file) => {
+      const label = file.pattern || "UNKNOWN";
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.entries(counts).map(([label, count]) => ({ label, count }));
+  }, [shadowCopies]);
+
+  // 5. Extract unique extensions map out of live array data streams
   const dynamicFileTypeBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
-    mockFilesList.forEach((file) => {
-      counts[file.extension] = (counts[file.extension] || 0) + 1;
+    shadowCopies.forEach((file) => {
+      if (file.extension) {
+        counts[file.extension] = (counts[file.extension] || 0) + 1;
+      }
     });
 
     return Object.entries(counts)
       .map(([ext, count]) => ({ ext, count }))
       .sort((a, b) => b.count - a.count);
-  }, []);
+  }, [shadowCopies]);
 
+  // 6. Formulate clean scaling data for the Recharts Radar visualizer
   const radarChartData = useMemo(() => {
     const patternMetrics: Record<
       string,
       { count: number; totalSizeKB: number }
     > = {};
 
-    mockFilesList.forEach((file) => {
-      const normPattern = file.pattern.toLowerCase();
-      const parsedSize = parseInt(file.size.replace(" KB", ""), 10) || 0;
+    shadowCopies.forEach((file) => {
+      const normPattern = file.pattern?.toLowerCase() || "unknown";
+      const parsedSize = parseInt(file.size?.replace(/[^\d]/g, ""), 10) || 0;
 
       if (!patternMetrics[normPattern]) {
         patternMetrics[normPattern] = { count: 0, totalSizeKB: 0 };
@@ -169,9 +148,9 @@ export function ShadowCopyPanel() {
         rawSizeKB: match.totalSizeKB,
       };
     });
-  }, []);
+  }, [shadowCopies, patternBreakdown]);
 
-  // Compute calculated metrics for support view summary cards
+  // 7. Compute calculated metrics for side-panel cards
   const computedMetrics = useMemo(() => {
     let totalSizeKB = 0;
     let maxPatternSizeKB = 0;
@@ -180,13 +159,15 @@ export function ShadowCopyPanel() {
     const patternCounts: Record<string, number> = {};
     const patternSizes: Record<string, number> = {};
 
-    mockFilesList.forEach((file) => {
-      const parsedSize = parseInt(file.size.replace(" KB", ""), 10) || 0;
+    shadowCopies.forEach((file) => {
+      const parsedSize = parseInt(file.size?.replace(/[^\d]/g, ""), 10) || 0;
       totalSizeKB += parsedSize;
 
-      patternCounts[file.pattern] = (patternCounts[file.pattern] || 0) + 1;
-      patternSizes[file.pattern] =
-        (patternSizes[file.pattern] || 0) + parsedSize;
+      if (file.pattern) {
+        patternCounts[file.pattern] = (patternCounts[file.pattern] || 0) + 1;
+        patternSizes[file.pattern] =
+          (patternSizes[file.pattern] || 0) + parsedSize;
+      }
     });
 
     Object.entries(patternSizes).forEach(([pattern, size]) => {
@@ -218,10 +199,11 @@ export function ShadowCopyPanel() {
       estimatedRecoverable: `${estimatedRecoverableMB} MB`,
       duplicatePercentage: `${totalDuplicatePercentage}%`,
     };
-  }, []);
+  }, [shadowCopies]);
 
+  // 8. Filters execution block
   const processedFiles = useMemo(() => {
-    let filtered = [...mockFilesList];
+    let filtered = [...shadowCopies];
     if (selectedExtension) {
       filtered = filtered.filter(
         (file) => file.extension === selectedExtension,
@@ -229,11 +211,33 @@ export function ShadowCopyPanel() {
     }
     if (selectedPattern) {
       filtered = filtered.filter(
-        (file) => file.pattern.toLowerCase() === selectedPattern.toLowerCase(),
+        (file) => file.pattern?.toLowerCase() === selectedPattern.toLowerCase(),
       );
     }
-    return filtered.sort((a, b) => b.copies - a.copies);
-  }, [selectedExtension, selectedPattern]);
+    return filtered.sort((a, b) => (b.copies || 0) - (a.copies || 0));
+  }, [shadowCopies, selectedExtension, selectedPattern]);
+
+  // Early Loading State Layout
+  if (loading) {
+    return (
+      <div className="w-full rounded-xl border border-white/[0.04] bg-[#0A0A0B] p-6 h-[680px] flex flex-col items-center justify-center text-white font-mono text-xs">
+        <div className="w-6 h-6 border-2 border-[#FF6B00] border-t-transparent rounded-full animate-spin mb-3" />
+        AGGREGATING TARGET FILE SYSTEM TELEMETRY...
+      </div>
+    );
+  }
+
+  // Early Error State Layout
+  if (error) {
+    return (
+      <div className="w-full rounded-xl border border-red-500/30 bg-[#0A0A0B] p-6 h-[680px] flex flex-col items-center justify-center text-red-400 font-mono text-xs">
+        <span className="text-sm mb-2">
+          ⚠ ERROR PIPELINE CONNECTION DROPPED
+        </span>
+        <span className="text-neutral-400">{error}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full rounded-xl border border-[#FF6B00] bg-[#0A0A0B] p-6 shadow-[0_0_40px_rgba(255,107,0,0.03)] flex flex-col justify-between min-h-[680px] text-white font-sans selection:bg-[#FF6B00]/30 antialiased">
@@ -259,7 +263,7 @@ export function ShadowCopyPanel() {
           {/* Top Minimal Numeric Metric Indicator Matrix */}
           <div className="grid grid-cols-3 gap-2.5 shrink-0">
             {[
-              { title: "TOTAL COPIES", value: mockFilesList.length },
+              { title: "TOTAL COPIES", value: shadowCopies.length },
               { title: "CAPACITY", value: summaryMetrics.totalSize },
               { title: "PATTERNS", value: summaryMetrics.detectedPatterns },
             ].map((card, i) => (
@@ -458,7 +462,7 @@ export function ShadowCopyPanel() {
                 </button>
               )}
               <div className="text-[#FF6B00] bg-[#FF6B00]/[0.06] border border-[#FF6B00]/20 px-2 py-0.5 rounded text-[9px] uppercase font-normal tracking-wider transition-all">
-                {processedFiles.length} / {mockFilesList.length} MATCHES
+                {processedFiles.length} / {shadowCopies.length} MATCHES
               </div>
             </div>
           </div>
@@ -526,7 +530,11 @@ export function ShadowCopyPanel() {
                                   {item.label}
                                 </span>
                                 <span
-                                  className={`text-[9px] px-1 rounded shrink-0 ${isCurrentActive ? "bg-[#FF6B00]/20 text-[#FF6B00]" : "bg-white/[0.03] text-[#69696C]"}`}
+                                  className={`text-[9px] px-1 rounded shrink-0 ${
+                                    isCurrentActive
+                                      ? "bg-[#FF6B00]/20 text-[#FF6B00]"
+                                      : "bg-white/[0.03] text-[#69696C]"
+                                  }`}
                                 >
                                   {item.count}
                                 </span>
@@ -593,7 +601,11 @@ export function ShadowCopyPanel() {
                               >
                                 <span>{item.ext}</span>
                                 <span
-                                  className={`text-[9px] px-1 rounded ${isCurrentActive ? "bg-[#FF6B00]/20 text-[#FF6B00]" : "bg-white/[0.03] text-[#69696C]"}`}
+                                  className={`text-[9px] px-1 rounded ${
+                                    isCurrentActive
+                                      ? "bg-[#FF6B00]/20 text-[#FF6B00]"
+                                      : "bg-white/[0.03] text-[#69696C]"
+                                  }`}
                                 >
                                   {item.count}
                                 </span>

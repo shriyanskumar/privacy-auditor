@@ -18,30 +18,34 @@ import PrivacyDebtHeatmap from "../app/components/PrivacyDebtHeatmap";
 import { Footer } from "../app/components/Footer";
 import { ShadowCopyPanel } from "../app/components/ShadowCopyPanel";
 
-type Finding = {
-  id: number;
-  file_path: string;
-  finding_type: string;
-  severity: string;
-  snippet: string;
-};
-
-type ShadowCopy = {
+// Keep this type to parse what comes over the wire from the API
+type BackendShadowCopy = {
   id: number;
   file_path: string;
   filename: string;
-  file_size: number;
+  file_size: number; // in bytes or KB
   detected_pattern: string;
   file_extension: string;
   severity: string;
   detected_at: string;
 };
 
+// Explicitly match the type contract expected by ShadowCopyPanel
+type PanelShadowCopyItem = {
+  id: number | string;
+  filename: string;
+  pattern: string;
+  copies: number;
+  size: string;
+  extension: string;
+  timestamp: string;
+};
+
 interface ScanModule {
   id: string;
   name: string;
   statusText: string;
-  estimatedDuration: number; // in milliseconds
+  estimatedDuration: number;
 }
 
 const MODULE_ICON_MAP: Record<string, React.ComponentType<any>> = {
@@ -58,7 +62,9 @@ export default function AppDashboard() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shadowCopies, setShadowCopies] = useState<ShadowCopy[]>([]);
+
+  // Updated state type to store the normalized items for the panel
+  const [shadowCopies, setShadowCopies] = useState<PanelShadowCopyItem[]>([]);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [shadowError, setShadowError] = useState<string | null>(null);
 
@@ -83,7 +89,31 @@ export default function AppDashboard() {
         throw new Error(body.error || "Unable to fetch shadow copies");
       }
       const data = await response.json();
-      setShadowCopies(data.shadowCopies || []);
+
+      const rawCopies: BackendShadowCopy[] = data.shadowCopies || [];
+
+      // FIX: Map backend snake_case properties to frontend camelCase expectations
+      const normalizedCopies: PanelShadowCopyItem[] = rawCopies.map((item) => {
+        // Convert numbers cleanly to human readable strings if they are raw byte capacities
+        const sizeInKB =
+          item.file_size > 1024
+            ? Math.round(item.file_size / 1024)
+            : item.file_size;
+
+        return {
+          id: item.id,
+          filename: item.filename || "unknown_file",
+          pattern: (item.detected_pattern || "UNKNOWN").toUpperCase(),
+          copies: 2, // Temporary fallback multiplier for chart scaling calculations if copies key is absent
+          size: `${sizeInKB || 0} KB`,
+          extension: item.file_extension || "DAT",
+          timestamp: item.detected_at
+            ? new Date(item.detected_at).toLocaleDateString()
+            : "RECENT",
+        };
+      });
+
+      setShadowCopies(normalizedCopies);
     } catch (err) {
       setShadowError(
         err instanceof Error ? err.message : "Failed to load shadow copies",
