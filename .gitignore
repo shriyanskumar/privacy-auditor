@@ -1,4 +1,6 @@
 node_modules/
 .env
 dist/
-build/backend/audit.db
+build/
+backend/audit.db
+*.db
