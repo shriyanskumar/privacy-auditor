@@ -491,12 +491,7 @@ export function ShadowCopyPanel({
                             : "border-white/[0.05] text-[#858588]"
                         }`}
                       >
-                        <svg
-                          className="w-2.5 h-2.5 fill-current"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.447.894l-3 2A1 1 0 017 17v-5.586L2.293 6.707A1 1 0 012 6V3h" />
-                        </svg>
+                        ▼
                       </button>
                     </div>
 
@@ -556,21 +551,16 @@ export function ShadowCopyPanel({
                       <span>Extension</span>
                       <button
                         onClick={() => {
-                          setIsExtDropdownOpen(!isExtDropdownOpen);
-                          setIsPatternDropdownOpen(false);
+                          setIsPatternDropdownOpen(!isPatternDropdownOpen);
+                          setIsExtDropdownOpen(false);
                         }}
                         className={`p-1 rounded bg-white/[0.02] border transition-all cursor-pointer outline-none hover:bg-white/[0.06] ${
-                          selectedExtension
+                          selectedPattern
                             ? "border-[#FF6B00] text-[#FF6B00]"
                             : "border-white/[0.05] text-[#858588]"
                         }`}
                       >
-                        <svg
-                          className="w-2.5 h-2.5 fill-current"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.447.894l-3 2A1 1 0 017 17v-5.586L2.293 6.707A1 1 0 012 6V3h" />
-                        </svg>
+                        ▼
                       </button>
                     </div>
 

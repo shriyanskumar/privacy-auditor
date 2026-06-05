@@ -66,6 +66,19 @@ db.exec(`
     detected_at TEXT,
     FOREIGN KEY(session_id) REFERENCES scan_sessions(id)
   );
+
+  CREATE TABLE IF NOT EXISTS quarantined_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,
+    original_path TEXT,
+    quarantine_path TEXT,
+    filename TEXT,
+    category TEXT,
+    action_taken TEXT,
+    quarantined_at TEXT,
+    status TEXT DEFAULT 'quarantined',
+    metadata TEXT
+  );
 `);
 
 console.log("Database initialized");

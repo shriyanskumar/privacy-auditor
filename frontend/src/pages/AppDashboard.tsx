@@ -17,6 +17,7 @@ import ExifWalk from "../app/components/ExifWalk";
 import PrivacyDebtHeatmap from "../app/components/PrivacyDebtHeatmap";
 import { Footer } from "../app/components/Footer";
 import { ShadowCopyPanel } from "../app/components/ShadowCopyPanel";
+import { NukePanel } from "../app/components/NukePanel";
 
 // Keep this type to parse what comes over the wire from the API
 type BackendShadowCopy = {
@@ -71,6 +72,14 @@ export default function AppDashboard() {
   const [scanModules, setScanModules] = useState<ScanModule[]>([]);
   const [currentModuleIndex, setCurrentModuleIndex] = useState<number>(0);
   const [moduleProgress, setModuleProgress] = useState<number>(0);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  const handleDashboardRefresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+    if (sessionId) {
+      loadShadowCopies(sessionId);
+    }
+  };
 
   const detectedTrackersCount = 0;
   const metadataExposuresCount = 0;
@@ -245,6 +254,7 @@ export default function AppDashboard() {
     setShadowCopies([]);
     setCurrentModuleIndex(0);
     setModuleProgress(0);
+    setRefreshTrigger(0);
 
     try {
       const activePipeline = await fetchScanConfiguration();
@@ -293,7 +303,7 @@ export default function AppDashboard() {
 
   return (
     <main className="min-h-screen flex flex-col w-full overflow-x-hidden bg-transparent text-white">
-      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 w-full">
+      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-28 w-full">
         {!sessionId && !scanning && !error ? (
           <div className="flex min-h-[500px] items-center justify-center">
             <div className="text-center max-w-lg mx-auto p-8 border border-white/5 bg-[#0D0D0D] rounded-2xl shadow-2xl">
@@ -542,13 +552,28 @@ export default function AppDashboard() {
         ) : (
           <div className="space-y-12 animate-in fade-in duration-700">
             <ShadowCopyPanel
+              key={`shadow-${sessionId}-${refreshTrigger}`}
               shadowCopies={shadowCopies}
               loading={shadowLoading}
               error={shadowError}
             />
-            <TrackerMap sessionId={sessionId} />
-            <ExifWalk sessionId={sessionId} />
-            <PrivacyDebtHeatmap />
+
+            <NukePanel
+              sessionId={sessionId}
+              onActionComplete={handleDashboardRefresh}
+            />
+
+            <ExifWalk
+              key={`exif-${sessionId}-${refreshTrigger}`}
+              sessionId={sessionId}
+            />
+            <TrackerMap
+              key={`tracker-${sessionId}-${refreshTrigger}`}
+              sessionId={sessionId}
+            />
+            <PrivacyDebtHeatmap
+              key={`heatmap-${sessionId}-${refreshTrigger}`}
+            />
           </div>
         )}
       </div>

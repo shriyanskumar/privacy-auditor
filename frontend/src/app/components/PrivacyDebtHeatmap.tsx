@@ -99,9 +99,15 @@ export default function PrivacyDebtHeatmap() {
     rawTreemapData.forEach((parent) => {
       if (parent.children && Array.isArray(parent.children)) {
         parent.children.forEach((child) => {
+          const safeValue = Number(child.value);
+
+          if (!Number.isFinite(safeValue) || safeValue <= 0) {
+            return;
+          }
+
           leaves.push({
             name: child.name,
-            value: child.value || 0,
+            value: safeValue,
             folder: parent.name,
             riskLevel: child.riskLevel || parent.riskLevel || "LOW",
           });
@@ -117,6 +123,8 @@ export default function PrivacyDebtHeatmap() {
     });
     return leaves;
   }, [rawTreemapData]);
+
+  console.log("TREEMAP NODES:", flattenedLeafNodes);
 
   // Sync initial selection safely
   useEffect(() => {
@@ -530,20 +538,30 @@ export default function PrivacyDebtHeatmap() {
                   isAnimationActive={false}
                   content={(props: any) => {
                     if (!props) return null;
-                    const {
-                      x,
-                      y,
-                      width,
-                      height,
-                      index,
-                      name,
-                      value,
-                      folder,
-                      riskLevel,
-                    } = props;
+                    if (
+                      Array.isArray(props.children) &&
+                      props.children.length > 0
+                    ) {
+                      return null;
+                    }
+
+                    const x = props?.x ?? 0;
+                    const y = props?.y ?? 0;
+                    const width = props?.width ?? 0;
+                    const height = props?.height ?? 0;
+                    const index = props?.index ?? 0;
+                    const name = props?.name ?? "Unknown";
+                    const value = props?.value ?? 0;
+                    const folder = props?.folder ?? "Unknown";
+                    const riskLevel = props?.riskLevel ?? "LOW";
 
                     if (width <= 0 || height <= 0) return null;
-
+                    if (
+                      Array.isArray(props.children) &&
+                      props.children.length > 0
+                    ) {
+                      return null;
+                    }
                     const nodeRisk: keyof typeof HEATMAP_COLORS =
                       riskLevel || "LOW";
                     const fill =
@@ -808,7 +826,17 @@ export default function PrivacyDebtHeatmap() {
                   fontSize: "13px",
                 }}
               >
-                Risk Level: {fallbackInsights.riskLevel}
+                Folder Risk Level: {fallbackInsights.riskLevel}
+              </div>
+
+              <div
+                style={{
+                  marginTop: "6px",
+                  color: "#A0A0A0",
+                  fontSize: "13px",
+                }}
+              >
+                Category Risk: {selectedNode?.riskLevel ?? "LOW"}
               </div>
               <div
                 style={{ marginTop: "6px", color: "#FFB470", fontSize: "13px" }}

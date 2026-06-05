@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { glob } = require("glob");
+const { globSync } = require("glob");
 const db = require("../db");
 
 const { detectSensitiveData } = require("./sensitiveDataDetector");
@@ -22,23 +22,13 @@ const SUSPICIOUS_NAMES = [
 ];
 
 const TEXT_EXTENSIONS = [
-  ".txt",
-  ".csv",
-  ".json",
-  ".md",
-  ".log",
-  ".env",
-  ".yml",
-  ".yaml",
-  ".xml",
-  ".js",
-  ".py",
-  ".html",
+  ".txt", ".csv", ".json", ".md", ".log", ".env",
+  ".yml", ".yaml", ".xml", ".js", ".py", ".html",
 ];
 
-const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".tiff", ".heic"];
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".tiff", ".heic", ".webp", ".gif", ".bmp"];
 
-const MAX_FILES = 10000;
+const MAX_FILES = 15000; // increased limit
 
 async function runScan(directories) {
   const info = db
@@ -48,16 +38,32 @@ async function runScan(directories) {
   const sessionId = info.lastInsertRowid;
   let totalFiles = 0;
 
-  for (const dir of directories) {
-    if (!fs.existsSync(dir)) continue;
+  console.log(`[scanner] Session ${sessionId} started. Directories:`, directories);
 
-    const files = await glob(`${dir}/**/*`, {
-      nodir: true,
-      ignore: ["**/node_modules/**", "**/.git/**"],
-      absolute: true,
-    });
+  for (const dir of directories) {
+    if (!fs.existsSync(dir)) {
+      console.log(`[scanner] Skipping (not found): ${dir}`);
+      continue;
+    }
+
+    // Normalize to forward-slashes for glob (required on Windows)
+    const normalizedDir = path.resolve(dir).replace(/\\/g, "/");
+    const globPattern = `${normalizedDir}/**/*`;
+
+    let files = [];
+    try {
+      files = globSync(globPattern, {
+        nodir: true,
+        ignore: ["**/node_modules/**", "**/.git/**", "**/.quarantine/**"],
+        absolute: true,
+      });
+    } catch (e) {
+      console.error(`[scanner] glob error for ${dir}:`, e.message);
+      continue;
+    }
 
     const limited = files.slice(0, MAX_FILES);
+    console.log(`[scanner] ${dir}: ${files.length} files found, processing ${limited.length}`);
 
     for (const filePath of limited) {
       totalFiles++;
@@ -66,77 +72,63 @@ async function runScan(directories) {
         const ext = path.extname(filePath).toLowerCase();
         const name = path.basename(filePath);
 
-        // Suspicious filename check
+        // ── Suspicious filename check ──
         const isSuspicious = SUSPICIOUS_NAMES.some((r) => r.test(name));
-
         if (isSuspicious) {
           db.prepare(
-            `INSERT INTO findings 
-             (session_id, file_path, finding_type, severity, snippet) 
-             VALUES (?, ?, ?, ?, ?)`,
+            `INSERT INTO findings (session_id, file_path, finding_type, severity, snippet) VALUES (?, ?, ?, ?, ?)`
           ).run(sessionId, filePath, "suspicious_filename", "medium", name);
         }
 
-        // Text scan
+        // ── Text / structured data scan ──
         if (TEXT_EXTENSIONS.includes(ext)) {
           const content = fs.readFileSync(filePath, "utf8").slice(0, 50000);
-
           const hits = detectSensitiveData(content);
-
           for (const hit of hits) {
             db.prepare(
-              `INSERT INTO findings 
-               (session_id, file_path, finding_type, severity, snippet) 
-               VALUES (?, ?, ?, ?, ?)`,
+              `INSERT INTO findings (session_id, file_path, finding_type, severity, snippet) VALUES (?, ?, ?, ?, ?)`
             ).run(sessionId, filePath, hit.type, hit.severity, hit.snippet);
           }
         }
 
-        // Screenshot detection
+        // ── Screenshot detection ──
         if (IMAGE_EXTENSIONS.includes(ext)) {
           const isScreenshot =
-            /screenshot|screen shot|screen_capture/i.test(name) ||
+            /screenshot|screen[\s_-]?shot|screen[\s_-]?capture/i.test(name) ||
             /screenshots/i.test(filePath);
           if (isScreenshot) {
             db.prepare(
-              `INSERT INTO findings 
-               (session_id, file_path, finding_type, severity, snippet) 
-               VALUES (?, ?, ?, ?, ?)`,
+              `INSERT INTO findings (session_id, file_path, finding_type, severity, snippet) VALUES (?, ?, ?, ?, ?)`
             ).run(sessionId, filePath, "screenshot", "medium", name);
           }
         }
 
-        // EXIF scan
+        // ── EXIF scan (async) ──
         if (IMAGE_EXTENSIONS.includes(ext)) {
           await scanExif(filePath, sessionId);
         }
       } catch (e) {
-        // silently skip unreadable files
+        // silently skip unreadable/locked files
       }
     }
   }
 
-  // Shadow copies
+  // ── Shadow copy detection (covers all directories) ──
+  console.log("[scanner] Running shadow copy detection...");
   detectShadowCopies(directories, sessionId);
 
-  // Browser audit
+  // ── Browser audit ──
+  console.log("[scanner] Running browser audit...");
   auditBrowsers(sessionId);
 
-  // ✅ FINAL SCORE (this is where your error was)
+  // ── Final score ──
   const score = scoreScan(sessionId);
 
   db.prepare(
-    `UPDATE scan_sessions 
-     SET finished_at = ?, total_files = ?, risk_score = ?, risk_level = ? 
-     WHERE id = ?`,
-  ).run(
-    new Date().toISOString(),
-    totalFiles,
-    score.score,
-    score.level,
-    sessionId,
-  );
+    `UPDATE scan_sessions SET finished_at = ?, total_files = ?, risk_score = ?, risk_level = ? WHERE id = ?`
+  ).run(new Date().toISOString(), totalFiles, score.score, score.level, sessionId);
 
+  console.log(`[scanner] Session ${sessionId} complete. Files: ${totalFiles}, Score: ${score.score} (${score.level})`);
   return sessionId;
 }
 

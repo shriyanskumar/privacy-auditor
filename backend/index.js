@@ -96,6 +96,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const nukeRouter = require("./routes/nuke");
+app.use("/api/nuke", nukeRouter);
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "PrivyScan backend running" });
@@ -117,7 +120,12 @@ app.post("/api/scan", async (req, res) => {
 
     const defaultPaths = commonFolders
       .map((folder) => path.join(home, folder))
-      .filter((p) => fs.existsSync(p));
+      .filter((p) => {
+        const exists = fs.existsSync(p);
+        if (!exists) console.log(`[scan] Skipping missing folder: ${p}`);
+        return exists;
+      });
+    console.log('[scan] Will scan:', defaultPaths);
 
     const { paths } = req.body;
     const scanPaths = paths && paths.length > 0 ? paths : defaultPaths;

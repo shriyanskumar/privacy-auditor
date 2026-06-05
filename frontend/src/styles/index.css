@@ -1,3 +1,28 @@
-@import './fonts.css';
-@import './tailwind.css';
-@import './theme.css';
+@import "./fonts.css";
+@import "./tailwind.css";
+@import "./theme.css";
+/* Privacy Debt Scrollbar */
+
+.pd-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.pd-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pd-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 107, 0, 0.35);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 107, 0, 0.2);
+}
+
+.pd-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 107, 0, 0.6);
+}
+
+.pd-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 107, 0, 0.45) transparent;
+}

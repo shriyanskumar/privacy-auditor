@@ -62,16 +62,11 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
 
         const data = await response.json();
 
-        console.log("EXIF API RESPONSE:", data);
-
         if (data.locations) {
           const validLocations = data.locations.filter(
             (loc: any) => loc.lat !== null && loc.lon !== null,
           );
-
           setLocations(validLocations);
-
-          console.log("Valid GPS Locations:", validLocations.length);
         }
       } catch (error) {
         console.error("Failed to fetch EXIF data:", error);

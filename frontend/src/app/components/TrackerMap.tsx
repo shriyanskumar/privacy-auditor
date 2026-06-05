@@ -48,8 +48,6 @@ export function TrackerMap({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1. Log Session ID to confirm the parent component is passing a valid value
-    console.log("TrackerMap — Active propSessionId:", propSessionId);
 
     if (!propSessionId) {
       setData(null);
@@ -65,8 +63,6 @@ export function TrackerMap({
       import.meta.env.VITE_API_URL || "http://localhost:3001";
     const targetUrl = `${API_BASE_URL}/api/trackers/${propSessionId}`;
 
-    console.log("TrackerMap — Fetching from URL:", targetUrl);
-
     fetch(targetUrl)
       .then(async (res) => {
         if (!res.ok) {
@@ -78,8 +74,6 @@ export function TrackerMap({
         return res.json();
       })
       .then((payload: TrackerData) => {
-        // 2. Log payload to verify if backend is returning structural empty objects vs populated data
-        console.log("TrackerMap — RECEIVED API PAYLOAD:", payload);
         setData(payload);
       })
       .catch((err) => {
