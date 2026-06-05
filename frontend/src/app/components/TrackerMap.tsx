@@ -33,6 +33,93 @@ const riskColor = (risk?: string) => {
 
 const nodeRadius = (node: TrackerNode) => (node.type === "tracker" ? 18 : 8);
 
+function StaticPreviewGraph({ data }: { data: TrackerData }) {
+  const width = 400;
+  const height = 280;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const nodes = data.nodes;
+  const edges = data.edges;
+
+  const nodePositions: Record<string, { x: number; y: number; type: string; risk?: string }> = {};
+
+  const domains = nodes.filter((n) => n.type === "domain");
+  const trackers = nodes.filter((n) => n.type === "tracker");
+
+  // Position domains at the center
+  domains.forEach((d, idx) => {
+    if (domains.length === 1) {
+      nodePositions[d.id] = { x: cx, y: cy, type: d.type };
+    } else {
+      const angle = (idx * 2 * Math.PI) / domains.length;
+      const r = 20;
+      nodePositions[d.id] = {
+        x: cx + r * Math.cos(angle),
+        y: cy + r * Math.sin(angle),
+        type: d.type,
+      };
+    }
+  });
+
+  // Position trackers in a circle
+  trackers.forEach((t, idx) => {
+    const angle = (idx * 2 * Math.PI) / trackers.length;
+    const r = Math.min(width, height) / 2 - 35;
+    nodePositions[t.id] = {
+      x: cx + r * Math.cos(angle),
+      y: cy + r * Math.sin(angle),
+      type: t.type,
+      risk: t.risk,
+    };
+  });
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+      {/* Draw edges */}
+      {edges.map((edge, idx) => {
+        const sourceId = typeof edge.source === "object" ? (edge.source as any).id : edge.source;
+        const targetId = typeof edge.target === "object" ? (edge.target as any).id : edge.target;
+        const p1 = nodePositions[sourceId];
+        const p2 = nodePositions[targetId];
+        if (!p1 || !p2) return null;
+        return (
+          <line
+            key={`edge-${idx}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="#4A4A4A"
+            strokeOpacity={0.35}
+            strokeWidth={1}
+          />
+        );
+      })}
+
+      {/* Draw nodes */}
+      {nodes.map((node) => {
+        const pos = nodePositions[node.id];
+        if (!pos) return null;
+        const isTracker = pos.type === "tracker";
+        const radius = isTracker ? 7 : 4;
+        const color = isTracker ? riskColor(pos.risk) : "#4A90D9";
+        return (
+          <circle
+            key={`node-${node.id}`}
+            cx={pos.x}
+            cy={pos.y}
+            r={radius}
+            fill={color}
+            stroke="#121212"
+            strokeWidth={1}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 export function TrackerMap({
   sessionId: propSessionId,
 }: {
@@ -46,6 +133,8 @@ export function TrackerMap({
   const [data, setData] = useState<TrackerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"companies" | "categories" | "risk" | "insights">("companies");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
 
@@ -153,10 +242,10 @@ export function TrackerMap({
       .attr("fill", (d) => colorScale(d.data.category) || "#4A4A4A")
       .attr("stroke", "#0A0A0A")
       .attr("stroke-width", 2);
-  }, [data]);
+  }, [data, activeTab]);
 
   useEffect(() => {
-    if (!data || !advancedSvgRef.current || !networkContainerRef.current)
+    if (!isModalOpen || !data || !advancedSvgRef.current || !networkContainerRef.current)
       return;
     if (data.nodes.length === 0) return;
 
@@ -171,24 +260,46 @@ export function TrackerMap({
 
     svg.attr("width", width).attr("height", height).style("overflow", "hidden");
 
-    const tooltip = d3.select(tooltipRef.current);
-    const links = data.edges;
+    // Create a container group for link, node, and label elements to allow panning/zooming
+    const containerG = svg.append("g");
 
-    const link = svg
+    // Add D3 zoom behavior
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 4])
+      .on("zoom", (event) => {
+        containerG.attr("transform", event.transform);
+      });
+    svg.call(zoom);
+
+    const tooltip = d3.select(tooltipRef.current);
+
+    // Clone data to avoid mutating original objects if we open/re-open simulations
+    const clonedNodes: TrackerNode[] = data.nodes.map((n) => ({ ...n }));
+    const clonedLinks: TrackerEdge[] = data.edges.map((e) => {
+      const sourceId = typeof e.source === "object" ? (e.source as any).id : e.source;
+      const targetId = typeof e.target === "object" ? (e.target as any).id : e.target;
+      return {
+        ...e,
+        source: sourceId,
+        target: targetId,
+      };
+    });
+
+    const link = containerG
       .append("g")
       .attr("stroke", "#4A4A4A")
       .attr("stroke-opacity", 0.75)
       .selectAll("line")
-      .data(links)
+      .data(clonedLinks)
       .join("line")
       .attr("stroke-width", 1);
 
     const simulation = d3
-      .forceSimulation<TrackerNode>(data.nodes)
+      .forceSimulation<TrackerNode>(clonedNodes)
       .force(
         "link",
         d3
-          .forceLink<TrackerNode, TrackerEdge>(links)
+          .forceLink<TrackerNode, TrackerEdge>(clonedLinks)
           .id((d) => d.id)
           .distance(80),
       )
@@ -202,10 +313,11 @@ export function TrackerMap({
           .forceCollide<TrackerNode>()
           .radius((d) => (d.type === "tracker" ? 34 : 14)),
       );
-    const node = svg
+
+    const node = containerG
       .append("g")
       .selectAll("circle")
-      .data(data.nodes)
+      .data(clonedNodes)
       .join("circle")
       .attr("r", (d) => nodeRadius(d))
       .attr("fill", (d) =>
@@ -232,10 +344,10 @@ export function TrackerMap({
           }),
       );
 
-    const label = svg
+    const label = containerG
       .append("g")
       .selectAll("text")
-      .data(data.nodes.filter((node) => node.type === "tracker"))
+      .data(clonedNodes.filter((node) => node.type === "tracker"))
       .join("text")
       .attr("font-size", 11)
       .attr("fill", "#FFFFFF")
@@ -291,7 +403,7 @@ export function TrackerMap({
     return () => {
       simulation.stop();
     };
-  }, [data]);
+  }, [data, isModalOpen]);
 
   const normalizeCategory = (category?: string) => {
     if (!category) return "Other";
@@ -448,444 +560,450 @@ export function TrackerMap({
               </div>
             </div>
           </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "24px",
-            }}
-          >
-            <div
-              className="rounded-[16px] bg-white/5 p-6"
-              style={{
-                background: "rgba(255, 255, 255, 0.04)",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                border: "1px solid rgba(255, 107, 0, 0.12)",
-                borderRadius: "16px",
-                overflow: "visible",
-                alignSelf: "stretch",
-              }}
-            >
-              <div className="mb-6">
-                <h3
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 600,
-                    color: "#FFFFFF",
-                  }}
-                >
-                  Insights
-                </h3>
-                <p
-                  style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)" }}
-                  className="mt-2 max-w-3xl"
-                >
-                  Review the top tracker counts, company breakdowns, risk
-                  signals, and category distribution for this scan.
-                </p>
-              </div>
-
-              <div className="mb-10 flex flex-wrap gap-4">
-                <div
-                  style={{
-                    background: "rgba(255, 107, 0, 0.08)",
-                    border: "1px solid rgba(255, 107, 0, 0.2)",
-                    borderRadius: "12px",
-                    padding: "12px 20px",
-                  }}
-                  className="flex flex-col"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-[#FF6B00]" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-[#8B8B8B]">
-                      Total Trackers
-                    </span>
+          <div className="flex flex-col lg:flex-row gap-8 w-full items-start">
+            {/* Left Panel: Insights + Tracker Network Graph (42% width) */}
+            <div className="w-full lg:w-[42%] flex flex-col gap-6">
+              {/* INSIGHTS */}
+              <div className="w-full bg-[#121212]/50 border border-white/[0.06] rounded-2xl p-6">
+                <div className="mb-4">
+                  <div className="text-xs uppercase tracking-[0.2em] text-[#FF6B00] font-semibold">
+                    Insights
                   </div>
-                  <div className="text-4xl font-bold text-white">{total}</div>
-                </div>
-
-                <div
-                  style={{
-                    background: "rgba(255, 68, 68, 0.08)",
-                    border: "1px solid rgba(255, 68, 68, 0.2)",
-                    borderRadius: "12px",
-                    padding: "12px 20px",
-                  }}
-                  className="flex flex-col"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-[#FF4444]" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-[#8B8B8B]">
-                      Advertising
-                    </span>
-                  </div>
-                  <div className="text-4xl font-bold text-white">
-                    {advertising}
+                  <div className="text-sm text-white/50 mt-1">
+                    Key tracker metrics and risk distribution.
                   </div>
                 </div>
-
-                <div
-                  style={{
-                    background: "rgba(76, 110, 245, 0.08)",
-                    border: "1px solid rgba(76, 110, 245, 0.2)",
-                    borderRadius: "12px",
-                    padding: "12px 20px",
-                  }}
-                  className="flex flex-col"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-[#4C6EF5]" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-[#8B8B8B]">
-                      Analytics
-                    </span>
-                  </div>
-                  <div className="text-4xl font-bold text-white">
-                    {analytics}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    background: "rgba(0, 196, 140, 0.08)",
-                    border: "1px solid rgba(0, 196, 140, 0.2)",
-                    borderRadius: "12px",
-                    padding: "12px 20px",
-                  }}
-                  className="flex flex-col"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-[#00C48C]" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-[#8B8B8B]">
-                      Social
-                    </span>
-                  </div>
-                  <div className="text-4xl font-bold text-white">{social}</div>
-                </div>
-              </div>
-              <div
-                className="rounded-[16px] bg-white/5 p-4"
-                style={{
-                  background: "rgba(255, 255, 255, 0.04)",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255, 107, 0, 0.12)",
-                  borderRadius: "16px",
-                  alignSelf: "stretch",
-                }}
-              >
-                <div
-                  className="relative w-full rounded-[16px]"
-                  style={{
-                    height: "650px",
-                    overflow: "visible",
-                  }}
-                  ref={networkContainerRef}
-                >
-                  <svg
-                    ref={advancedSvgRef}
-                    className="w-full h-full overflow-visible"
-                  />
-
-                  <div
-                    ref={tooltipRef}
-                    className="pointer-events-none absolute z-20 hidden px-3 py-2 text-xs text-white shadow-xl"
-                    style={{
-                      display: "none",
-                      background: "rgba(255, 255, 255, 0.04)",
-                      backdropFilter: "blur(8px)",
-                      WebkitBackdropFilter: "blur(8px)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                      borderRadius: "12px",
-                    }}
-                  />
-                </div>
-
-                <div className="mt-6 flex justify-center gap-8">
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#FF4444]" />
-                    <span className="text-sm text-white">High Risk</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#F0A500]" />
-                    <span className="text-sm text-white">Medium Risk</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[#00C48C]" />
-                    <span className="text-sm text-white">Low Risk</span>
-                  </div>
-                </div>
-              </div>
-              <div style={{ height: "20px" }} />
-              <div className="space-y-10">
-                <div>
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div>
-                      <h4
-                        style={{
-                          fontSize: "18px",
-                          fontWeight: 600,
-                          color: "#FFFFFF",
-                        }}
-                      >
-                        Top Tracking Companies
-                      </h4>
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "rgba(255,255,255,0.45)",
-                        }}
-                        className="mt-1"
-                      >
-                        Most active tracker companies by matched domains.
-                      </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Metric: Total Trackers */}
+                  <div className="bg-[#1A1A1A] border border-white/[0.08] rounded-xl p-4 flex flex-col">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-2 w-2 rounded-full bg-[#FF6B00]" />
+                      <span className="text-[10px] uppercase tracking-wider text-[#8B8B8B]">Total Trackers</span>
                     </div>
-                    <span className="rounded-full border border-[#FF6B00]/20 bg-[#FF6B00]/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-[#FFB470]">
-                      Top 10
-                    </span>
+                    <span className="text-2xl font-bold text-white">{total}</span>
                   </div>
-                  <div
-                    className="space-y-2"
-                    style={{
-                      overflow: "visible",
-                    }}
-                  >
-                    {topTrackers.map((tracker, index) => (
-                      <div
-                        key={tracker.id}
-                        className="border-b border-white/[0.06] py-3 last:border-b-0"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-[10px] text-[#8B8B8B] uppercase tracking-[0.18em] mb-1">
-                              #{index + 1}
-                            </div>
-                            <div
-                              className="text-sm font-semibold truncate"
-                              style={{
-                                color: "#FFFFFF",
-                              }}
-                            >
-                              {tracker.label}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[9px] text-[#8B8B8B]">
-                              Domains
-                            </div>
-                            <div className="text-base font-semibold text-white">
-                              {tracker.domainCount || 0}
-                            </div>
-                          </div>
-                        </div>
-                        <div
-                          className="rounded-full bg-white/10 overflow-hidden my-3"
-                          style={{ height: "2px" }}
-                        >
-                          <div
-                            className="rounded-full bg-[#FF6B00]"
-                            style={{
-                              height: "2px",
-                              width: `${Math.max(8, ((tracker.domainCount || 0) / maxDomainCount) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-[10px] text-[#8B8B8B]">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                            {normalizeCategory(tracker.category)}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                            {tracker.risk || "low"}
-                          </span>
-                        </div>
+                  
+                  {/* Metric: Advertising */}
+                  <div className="bg-[#1A1A1A] border border-white/[0.08] rounded-xl p-4 flex flex-col">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-2 w-2 rounded-full bg-[#FF4444]" />
+                      <span className="text-[10px] uppercase tracking-wider text-[#8B8B8B]">Advertising</span>
+                    </div>
+                    <span className="text-2xl font-bold text-white">{advertising}</span>
+                  </div>
+                  
+                  {/* Metric: Analytics */}
+                  <div className="bg-[#1A1A1A] border border-white/[0.08] rounded-xl p-4 flex flex-col">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-2 w-2 rounded-full bg-[#4C6EF5]" />
+                      <span className="text-[10px] uppercase tracking-wider text-[#8B8B8B]">Analytics</span>
+                    </div>
+                    <span className="text-2xl font-bold text-white">{analytics}</span>
+                  </div>
+                  
+                  {/* Metric: Social */}
+                  <div className="bg-[#1A1A1A] border border-white/[0.08] rounded-xl p-4 flex flex-col">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-2 w-2 rounded-full bg-[#00C48C]" />
+                      <span className="text-[10px] uppercase tracking-wider text-[#8B8B8B]">Social</span>
+                    </div>
+                    <span className="text-2xl font-bold text-white">{social}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TRACKER NETWORK PREVIEW */}
+              <div className="w-full bg-[#121212]/50 border border-white/[0.06] rounded-2xl p-6 flex flex-col">
+                <div className="mb-4">
+                  <div className="text-xs uppercase tracking-[0.2em] text-[#FF6B00] font-semibold">
+                    Tracker Network Preview
+                  </div>
+                  <div className="text-sm text-white/50 mt-1">
+                    Static topology overview of tracker connections.
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setIsModalOpen(true)}
+                  className="group relative cursor-pointer overflow-hidden rounded-xl bg-black/45 border border-white/[0.05] hover:border-[#FF6B00]/30 transition-all duration-300"
+                  style={{ height: "320px" }}
+                >
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <StaticPreviewGraph data={data} />
+                  </div>
+
+                  {/* Polished CTA Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent flex items-end justify-center pb-6 opacity-90 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-lg transition-all duration-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 3h6v6"/>
+                        <path d="M9 21H3v-6"/>
+                        <path d="M21 3l-7 7"/>
+                        <path d="M3 21l7-7"/>
+                      </svg>
+                      <span>🔍 View Full Network</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Panel: Tab-Switching Interface (58% width) */}
+            <div className="w-full lg:w-[58%] flex flex-col bg-[#121212]/50 border border-white/[0.06] rounded-2xl p-6 lg:h-[1000px] overflow-hidden">
+              {/* Tabs selector */}
+              <div className="flex border-b border-white/[0.08] mb-6 overflow-x-auto scrollbar-none gap-2">
+                {[
+                  { id: "companies", label: "Top Tracking Companies" },
+                  { id: "categories", label: "Tracker Categories" },
+                  { id: "risk", label: "Highest Risk Trackers" },
+                  { id: "insights", label: "Additional Insights" },
+                ].map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all duration-200 cursor-pointer ${
+                        isActive
+                          ? "border-[#FF6B00] text-white bg-white/[0.02]"
+                          : "border-transparent text-white/50 hover:text-white hover:bg-white/[0.01]"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab content area (independently scrollable) */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                {activeTab === "companies" && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-lg font-bold text-white">Top Tracking Companies</h4>
+                        <p className="text-xs text-white/40 mt-0.5">Most active tracker companies by matched domains.</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] px-2.5 py-1 rounded-full bg-[#FF6B00]/10 border border-[#FF6B00]/25 text-[#FFB470]">
+                        Top 10
+                      </span>
+                    </div>
 
-                <div>
-                  <div className="mb-4">
-                    <h4
-                      style={{
-                        fontSize: "18px",
-                        fontWeight: 600,
-                        color: "#FFFFFF",
-                      }}
-                    >
-                      Tracker Categories
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: "13px",
-                        color: "rgba(255,255,255,0.45)",
-                      }}
-                      className="mt-1"
-                    >
-                      Category distribution across all detected tracker
-                      companies.
-                    </p>
-                  </div>
-                  <div className="grid gap-6 lg:grid-cols-[minmax(180px,auto)_1fr] items-center">
-                    <div
-                      ref={donutContainerRef}
-                      className="flex h-[190px] min-w-[180px] items-center justify-center overflow-visible pl-10"
-                    >
-                      <svg
-                        ref={donutRef}
-                        className="w-full max-w-[190px] h-[190px] overflow-visible"
-                        preserveAspectRatio="xMidYMid meet"
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      {categoryBuckets.map((bucket) => (
-                        <div
-                          key={bucket.category}
-                          className="flex items-center justify-between gap-2 border-b border-white/10 py-3 last:border-b-0"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="inline-flex h-2.5 w-2.5 rounded-full"
-                              style={{
-                                backgroundColor: categoryColor(bucket.category),
-                              }}
-                            />
-                            <span className="text-sm text-white">
-                              {bucket.category}
-                            </span>
-                          </div>
-                          <span className="text-sm font-semibold text-white">
-                            {bucket.value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-8">
-                  <div>
-                    <div className="mb-4">
-                      <h4
-                        style={{
-                          fontSize: "18px",
-                          fontWeight: 600,
-                          color: "#FFFFFF",
-                        }}
-                      >
-                        Highest Risk Trackers
-                      </h4>
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "rgba(255,255,255,0.45)",
-                        }}
-                        className="mt-1"
-                      >
-                        High-risk tracker companies with the most exposed
-                        domains.
-                      </p>
-                    </div>
-                    <div className="space-y-3">
-                      {highRiskTrackers.length === 0 ? (
-                        <div className="text-[#8B8B8B]">
-                          No high-risk trackers detected.
-                        </div>
-                      ) : (
-                        highRiskTrackers.slice(0, 6).map((tracker) => (
+                    <div className="space-y-3 mt-4">
+                      {topTrackers.map((tracker, index) => {
+                        const percentage = Math.max(8, ((tracker.domainCount || 0) / maxDomainCount) * 105);
+                        return (
                           <div
                             key={tracker.id}
-                            className="grid grid-cols-[1fr_auto] gap-3 border-b border-white/[0.06] py-3 last:border-b-0"
+                            className="bg-[#1A1A1A]/60 hover:bg-[#1A1A1A] border border-white/[0.04] hover:border-white/[0.08] rounded-xl p-4 transition-all duration-200"
                           >
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-white truncate">
-                                {tracker.label}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="flex items-center justify-center h-6 w-6 shrink-0 rounded-lg bg-white/[0.05] text-xs font-bold text-white/70">
+                                  #{index + 1}
+                                </span>
+                                <span className="text-sm font-semibold text-white truncate">
+                                  {tracker.label}
+                                </span>
                               </div>
-                              <div className="text-[10px] text-[#8B8B8B] mt-0.5">
-                                {normalizeCategory(tracker.category)}
-                              </div>
-                              <div className="text-[10px] text-[#8B8B8B] mt-0.5">
-                                Affected domains: {tracker.domainCount || 0}
+
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] text-white/40 block">Domains</span>
+                                <span className="text-sm font-bold text-white">{tracker.domainCount || 0}</span>
                               </div>
                             </div>
-                            <div className="flex items-start justify-end">
-                              <span
+
+                            {/* Progress bar */}
+                            <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden mb-3">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
                                 style={{
-                                  border: "1px solid rgba(255,68,68,0.5)",
-                                  color: "#FF4444",
-                                  background: "rgba(255,68,68,0.1)",
-                                  borderRadius: "6px",
-                                  padding: "2px 8px",
-                                  fontSize: "11px",
+                                  width: `${Math.min(100, percentage)}%`,
+                                  backgroundColor: categoryColor(normalizeCategory(tracker.category)),
                                 }}
-                                className="font-semibold uppercase tracking-[0.12em]"
-                              >
-                                High Risk
+                              />
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <div className="flex gap-2">
+                                <span className="text-[10px] font-medium text-white/60 bg-white/[0.05] px-2.5 py-0.5 rounded-full border border-white/[0.08]">
+                                  {normalizeCategory(tracker.category)}
+                                </span>
+                                <span
+                                  className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+                                  style={{
+                                    color: riskColor(tracker.risk),
+                                    background: `${riskColor(tracker.risk)}15`,
+                                    border: `1px solid ${riskColor(tracker.risk)}30`
+                                  }}
+                                >
+                                  {tracker.risk || "low"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "categories" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-lg font-bold text-white">Tracker Categories</h4>
+                      <p className="text-xs text-white/40 mt-0.5">Category distribution across all detected tracker companies.</p>
+                    </div>
+
+                    <div className="grid gap-6 grid-cols-1 md:grid-cols-[240px_1fr] items-center bg-[#1A1A1A]/40 border border-white/[0.04] rounded-xl p-6">
+                      <div
+                        ref={donutContainerRef}
+                        className="flex h-[220px] min-w-[220px] items-center justify-center overflow-visible mx-auto"
+                      >
+                        <svg
+                          ref={donutRef}
+                          className="w-full max-w-[220px] h-[220px] overflow-visible"
+                          preserveAspectRatio="xMidYMid meet"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {categoryBuckets.map((bucket) => (
+                          <div
+                            key={bucket.category}
+                            className="flex items-center justify-between border-b border-white/[0.06] py-2.5 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className="inline-flex h-3 w-3 rounded-full shrink-0"
+                                style={{
+                                  backgroundColor: categoryColor(bucket.category),
+                                }}
+                              />
+                              <span className="text-sm font-medium text-white/80">
+                                {bucket.category}
                               </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-white">
+                                {bucket.value}
+                              </span>
+                              <span className="text-[11px] text-white/40">
+                                ({total > 0 ? Math.round((bucket.value / total) * 100) : 0}%)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "risk" && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-lg font-bold text-white">Highest Risk Trackers</h4>
+                        <p className="text-xs text-white/40 mt-0.5">High-risk trackers require immediate attention.</p>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1 rounded-full bg-[#FF4444]/15 border border-[#FF4444]/40 text-[#FF4444] animate-pulse">
+                        {highRiskTrackers.length} Critical
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {highRiskTrackers.length === 0 ? (
+                        <div className="bg-[#1A1A1A]/30 border border-white/[0.04] rounded-xl p-8 text-center text-[#8B8B8B] text-sm">
+                          No high-risk trackers detected in browser data.
+                        </div>
+                      ) : (
+                        highRiskTrackers.map((tracker) => (
+                          <div
+                            key={tracker.id}
+                            className="bg-red-500/[0.03] hover:bg-red-500/[0.06] border border-red-500/15 hover:border-red-500/30 rounded-xl p-4 transition-all duration-200"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="mt-0.5 p-1.5 shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 text-[#FF4444]">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                  </svg>
+                                </div>
+                                <div className="min-w-0">
+                                  <h5 className="text-sm font-bold text-white truncate">{tracker.label}</h5>
+                                  <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] text-white/50">
+                                    <span className="bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.08]">
+                                      {normalizeCategory(tracker.category)}
+                                    </span>
+                                    <span className="bg-red-500/10 text-[#FF4444] px-2 py-0.5 rounded border border-red-500/20 font-medium">
+                                      CRITICAL RISK
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] text-white/40 block uppercase tracking-wider">Domains</span>
+                                <span className="text-base font-bold text-white">{tracker.domainCount || 0}</span>
+                              </div>
                             </div>
                           </div>
                         ))
                       )}
                     </div>
                   </div>
+                )}
 
-                  <div>
-                    <div className="mb-4">
-                      <h4
-                        style={{
-                          fontSize: "18px",
-                          fontWeight: 600,
-                          color: "#FFFFFF",
-                        }}
-                      >
-                        Additional Insights
-                      </h4>
-                      <p
-                        style={{
-                          fontSize: "13px",
-                          color: "rgba(255,255,255,0.45)",
-                        }}
-                        className="mt-1"
-                      >
-                        Actionable context to interpret the tracker scan
-                        quickly.
-                      </p>
+                {activeTab === "insights" && (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-lg font-bold text-white">Additional Insights</h4>
+                      <p className="text-xs text-white/40 mt-0.5">Actionable analysis to interpret the tracker scan profile.</p>
                     </div>
-                    <div className="space-y-3 text-sm text-[#D5D5D5]">
-                      <div className="border-b border-white/10 pb-3">
-                        <div className="text-[10px] uppercase tracking-[0.22em] text-[#8B8B8B]">
-                          Focus
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Card: Most Prevalent */}
+                      <div className="bg-[#1A1A1A]/60 border border-white/[0.06] rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#FF6B00] uppercase tracking-wider block mb-1">Most Prevalent</span>
+                          <h5 className="text-sm font-bold text-white">{topTrackers[0]?.label || "None"}</h5>
                         </div>
-                        <div className="mt-1">
-                          High-risk trackers are centralized in a few major
-                          companies.
+                        <p className="text-xs text-white/50 mt-3">
+                          This tracker is active across <span className="text-[#FF6B00] font-bold">{topTrackers[0]?.domainCount || 0}</span> domains, making it the primary target for privacy mitigation.
+                        </p>
+                      </div>
+
+                      {/* Card: Ad Dominance */}
+                      <div className="bg-[#1A1A1A]/60 border border-white/[0.06] rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#FF6B00] uppercase tracking-wider block mb-1">Advertising Exposure</span>
+                          <h5 className="text-sm font-bold text-white">{total > 0 ? Math.round((advertising / total) * 100) : 0}% Ad Trackers</h5>
+                        </div>
+                        <p className="text-xs text-white/50 mt-3">
+                          Advertising trackers constitute <span className="text-[#FF6B00] font-bold">{advertising}</span> of the {total} total trackers detected.
+                        </p>
+                      </div>
+
+                      {/* Card: High Risk Count */}
+                      <div className="bg-[#1A1A1A]/60 border border-white/[0.06] rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#FF6B00] uppercase tracking-wider block mb-1">High Risk Count</span>
+                          <h5 className="text-sm font-bold text-white">{highRiskTrackers.length} Trackers</h5>
+                        </div>
+                        <p className="text-xs text-white/50 mt-3">
+                          There are <span className="text-red-400 font-bold">{highRiskTrackers.length}</span> high-risk tracking networks present.
+                        </p>
+                      </div>
+
+                      {/* Card: Focus */}
+                      <div className="bg-[#1A1A1A]/60 border border-white/[0.06] rounded-xl p-4 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold text-[#FF6B00] uppercase tracking-wider block mb-1">Concentration</span>
+                          <h5 className="text-sm font-bold text-white">Centralized Risk</h5>
+                        </div>
+                        <p className="text-xs text-white/50 mt-3">
+                          High-risk trackers are centralized in a few major parent companies.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Existing Editorial Tips */}
+                    <div className="mt-6 border-t border-white/[0.06] pt-6 space-y-4">
+                      <div className="flex gap-3">
+                        <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold w-12 pt-0.5">Focus</div>
+                        <div className="text-xs text-white/70">
+                          High-risk trackers are centralized in a few major companies.
                         </div>
                       </div>
-                      <div className="border-b border-white/10 pb-3">
-                        <div className="text-[10px] uppercase tracking-[0.22em] text-[#8B8B8B]">
-                          Trend
-                        </div>
-                        <div className="mt-1">
-                          Advertising trackers dominate the current fingerprint
-                          profile.
+                      <div className="flex gap-3">
+                        <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold w-12 pt-0.5">Trend</div>
+                        <div className="text-xs text-white/70">
+                          Advertising trackers dominate the current fingerprint profile.
                         </div>
                       </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-[0.22em] text-[#8B8B8B]">
-                          Tip
-                        </div>
-                        <div className="mt-1">
-                          Review the top 3 companies first to maximize privacy
-                          impact.
+                      <div className="flex gap-3">
+                        <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold w-12 pt-0.5">Tip</div>
+                        <div className="text-xs text-white/70">
+                          Review the top 3 companies first to maximize privacy impact.
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
+
+            {/* Modal for Full D3 Network Graph */}
+            {isModalOpen && (
+              <div 
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+                onClick={() => setIsModalOpen(false)}
+              >
+                <div 
+                  className="relative w-full max-w-6xl h-[85vh] bg-[#0A0A0A] border border-[#FF6B00]/30 rounded-2xl flex flex-col overflow-hidden shadow-2xl animate-scale-up"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121212]/30">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Tracker Network Graph</h3>
+                      <p className="text-xs text-white/40 mt-0.5">Interactive topology of connection paths.</p>
+                    </div>
+                    <button 
+                      onClick={() => setIsModalOpen(false)}
+                      className="p-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white transition-all cursor-pointer"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Modal Body: D3 SVG Container */}
+                  <div 
+                    ref={networkContainerRef}
+                    className="flex-1 relative w-full bg-black/40 overflow-hidden"
+                  >
+                    <svg 
+                      ref={advancedSvgRef}
+                      className="w-full h-full overflow-hidden cursor-move"
+                    />
+
+                    {/* D3 Tooltip */}
+                    <div
+                      ref={tooltipRef}
+                      className="pointer-events-none absolute z-50 hidden px-3 py-2 text-xs text-white shadow-xl"
+                      style={{
+                        display: "none",
+                        background: "rgba(255, 255, 255, 0.04)",
+                        backdropFilter: "blur(8px)",
+                        WebkitBackdropFilter: "blur(8px)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        borderRadius: "12px",
+                      }}
+                    />
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-white/[0.08] bg-[#121212]/30 text-xs text-white/40 gap-3">
+                    <div>
+                      Drag nodes to reposition • Hover for details • Scroll to zoom
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#FF4444]" /> High Risk</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#F0A500]" /> Medium Risk</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#00C48C]" /> Low Risk</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4A90D9]" /> Target Domain</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
