@@ -528,15 +528,52 @@ export function NukePanel({ sessionId, onActionComplete }: NukePanelProps) {
                   </table>
                 )}
                 {visibleCount < quarantineItems.length && (
-                  <div className="flex justify-center py-3">
-                    <button
-                      onClick={() => setVisibleCount((v) => v + 50)}
-                      className="px-4 py-2 rounded border border-[#FF6B00]/20 bg-[#FF6B00]/10 text-[#FFB470] text-[10px] font-mono hover:bg-[#FF6B00]/20 transition-colors"
-                    >
-                      LOAD 50 MORE
-                    </button>
+                  <div className="border-t border-white/[0.04] px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-[#69696C]">
+                        {filteredQuarantineItems.length} Files Isolated
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {visibleCount < filteredQuarantineItems.length && (
+                          <button
+                            onClick={() => setVisibleCount((v) => v + 50)}
+                            className="px-3 py-1 rounded border border-[#FF6B00]/20 bg-[#FF6B00]/10 text-[#FFB470] text-[10px] font-mono hover:bg-[#FF6B00]/20"
+                          >
+                            LOAD 50 MORE
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
+              </div>
+              <div className="shrink-0 border-t border-white/[0.04] px-3 py-2 flex items-center justify-between bg-[#101012]">
+                <span className="text-[10px] font-mono text-[#69696C]">
+                  {filteredQuarantineItems.length} Files Isolated
+                </span>
+
+                <button
+                  onClick={handleRestoreAll}
+                  disabled={
+                    actionLoading !== null || quarantineItems.length === 0
+                  }
+                  className="
+      px-3 py-1
+      rounded
+      bg-[#FF6B00]/10
+      border border-[#FF6B00]/20
+      hover:bg-[#FF6B00]/20
+      text-[#FFB470]
+      text-[10px]
+      font-mono
+      flex items-center gap-1
+      disabled:opacity-50
+    "
+                >
+                  <RotateCcw size={10} />
+                  Restore All
+                </button>
               </div>
             </div>
           </div>
