@@ -336,332 +336,194 @@ export default function ExifWalk({ sessionId }: ExifWalkProps) {
         )}
       </div>
 
-      {/* MAP SECTION */}
-
       <div
         style={{
-          position: "relative",
-          marginBottom: "32px",
-          marginTop: "12px",
-        }}
-      >
-        {/* Controls */}
-        <div
-          style={{
-            position: "absolute",
-            top: "16px",
-            left: "16px",
-            zIndex: 1000,
-            display: "flex",
-            gap: "10px",
-            pointerEvents: "auto",
-          }}
-        >
-          <button
-            onClick={() => setWorldView(false)}
-            style={{
-              padding: "10px 14px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              background: !worldView
-                ? "rgba(255,107,0,0.12)"
-                : "rgba(255,255,255,0.04)",
-              border: !worldView
-                ? "1px solid rgba(255,107,0,0.45)"
-                : "1px solid rgba(255,255,255,0.08)",
-              color: !worldView ? "#FFB470" : "#AAA",
-              backdropFilter: "blur(12px)",
-              boxShadow: !worldView ? "0 0 0 1px rgba(255,107,0,0.15)" : "none",
-            }}
-          >
-            <Search size={18} />
-          </button>
-
-          <button
-            onClick={() => setWorldView(true)}
-            style={{
-              padding: "10px 14px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              background: worldView
-                ? "rgba(255,107,0,0.12)"
-                : "rgba(255,255,255,0.04)",
-              border: worldView
-                ? "1px solid rgba(255,107,0,0.45)"
-                : "1px solid rgba(255,255,255,0.08)",
-              color: worldView ? "#FFB470" : "#AAA",
-              backdropFilter: "blur(12px)",
-              boxShadow: worldView ? "0 0 0 1px rgba(255,107,0,0.15)" : "none",
-            }}
-          >
-            <Globe size={18} />
-          </button>
-        </div>
-
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="700"
-          style={{
-            borderRadius: "16px",
-            background: "#050505",
-            border: "1px solid rgba(255,107,0,0.12)",
-          }}
-        />
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "16px",
-          marginBottom: "24px",
-          flexWrap: "wrap",
-        }}
-      >
-        <div
-          style={{
-            background: "rgba(255,107,0,0.08)",
-            border: "1px solid rgba(255,107,0,0.2)",
-            borderRadius: "12px",
-            padding: "12px 20px",
-            minWidth: "180px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#888",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Photos Scanned
-          </div>
-
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              color: "#FFF",
-            }}
-          >
-            {photosScanned}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: "rgba(255,107,0,0.08)",
-            border: "1px solid rgba(255,107,0,0.2)",
-            borderRadius: "12px",
-            padding: "12px 20px",
-            minWidth: "180px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#888",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            GPS Tagged
-          </div>
-
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              color: "#FFF",
-            }}
-          >
-            {gpsTagged}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: "rgba(255,107,0,0.08)",
-            border: "1px solid rgba(255,107,0,0.2)",
-            borderRadius: "12px",
-            padding: "12px 20px",
-            minWidth: "180px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#888",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Devices Found
-          </div>
-
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              color: "#FFF",
-            }}
-          >
-            {devicesFound}
-          </div>
-        </div>
-        <div
-          style={{
-            background:
-              riskScore > 70 ? "rgba(255,68,68,0.08)" : "rgba(255,107,0,0.08)",
-            border:
-              riskScore > 70
-                ? "1px solid rgba(255,68,68,0.2)"
-                : "1px solid rgba(255,107,0,0.2)",
-            borderRadius: "12px",
-            padding: "12px 20px",
-            minWidth: "180px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#888",
-              textTransform: "uppercase",
-              marginBottom: "6px",
-            }}
-          >
-            Risk Score
-          </div>
-
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              color: riskScore > 70 ? "#FF4444" : "#FF6B00",
-            }}
-          >
-            {riskScore}
-          </div>
-        </div>
-      </div>
-      <div
-        style={{
+          display: "grid",
+          gridTemplateColumns: "1.7fr 1fr",
+          gap: "24px",
+          marginTop: "20px",
           marginBottom: "20px",
-          padding: "16px",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,107,0,0.12)",
-          borderRadius: "12px",
         }}
       >
-        <div
-          style={{
-            color: "#FFF",
-            fontWeight: 600,
-            marginBottom: "12px",
-          }}
-        >
-          Key Findings
-        </div>
-
-        <div
-          style={{
-            color: "#BBB",
-            lineHeight: 1.8,
-          }}
-        >
-          <div>• {gpsTagged} GPS-tagged photos discovered</div>
-          <div>• {devicesFound} devices contain location metadata</div>
-          <div>• Historical movement patterns may be reconstructed</div>
-          <div>• High privacy exposure risk identified</div>
-        </div>
-      </div>
-      <div
-        style={{
-          marginBottom: "20px",
-          padding: "16px",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,107,0,0.12)",
-          borderRadius: "12px",
-        }}
-      >
-        <div
-          style={{
-            color: "#FFF",
-            fontWeight: 600,
-            marginBottom: "12px",
-          }}
-        >
-          Device Breakdown
-        </div>
-
-        {deviceStats.map(([device, count]) => (
-          <div
-            key={device}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "6px 0",
-              color: "#BBB",
-            }}
-          >
-            <span>{device}</span>
-            <span>{count} photos</span>
-          </div>
-        ))}
-      </div>
-
-      {tooltip.visible && tooltip.location && (
-        <div
-          style={{
-            position: "fixed",
-            left: tooltip.x,
-            top: tooltip.y,
-            background: "rgba(12,12,12,0.95)",
-            border: "1px solid rgba(255,77,0,0.3)",
-            borderRadius: "8px",
-            padding: "12px",
-            minWidth: "220px",
-            pointerEvents: "none",
-            zIndex: 9999,
-            backdropFilter: "blur(8px)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-          }}
-        >
+        {/* LEFT COLUMN */}
+        <div>
           <div
             style={{
-              color: "#FF6B00",
-              fontWeight: 700,
-              marginBottom: "8px",
+              position: "relative",
+              border: "1px solid rgba(255,107,0,0.15)",
+              borderRadius: "16px",
+              overflow: "hidden",
             }}
           >
-            {tooltip.location.filename ||
-              tooltip.location.fileName ||
-              "Unknown File"}
-          </div>
+            <div
+              style={{
+                position: "absolute",
+                top: "16px",
+                left: "16px",
+                zIndex: 1000,
+                display: "flex",
+                gap: "10px",
+              }}
+            >
+              <button
+                onClick={() => setWorldView(false)}
+                style={{
+                  padding: "10px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,107,0,0.2)",
+                  background: !worldView
+                    ? "rgba(255,107,0,0.15)"
+                    : "rgba(255,255,255,0.03)",
+                  color: "#FF6B00",
+                  cursor: "pointer",
+                }}
+              >
+                <Search size={18} />
+              </button>
 
-          <div style={{ color: "#888", fontSize: "11px" }}>COORDS</div>
+              <button
+                onClick={() => setWorldView(true)}
+                style={{
+                  padding: "10px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,107,0,0.2)",
+                  background: worldView
+                    ? "rgba(255,107,0,0.15)"
+                    : "rgba(255,255,255,0.03)",
+                  color: "#FF6B00",
+                  cursor: "pointer",
+                }}
+              >
+                <Globe size={18} />
+              </button>
+            </div>
 
-          <div style={{ color: "#FFF", marginBottom: "8px" }}>
-            {Number(tooltip.location.lat).toFixed(4)},{" "}
-            {Number(tooltip.location.lon).toFixed(4)}
-          </div>
-
-          <div style={{ color: "#888", fontSize: "11px" }}>DEVICE</div>
-
-          <div style={{ color: "#FFF", marginBottom: "8px" }}>
-            {tooltip.location.device_model ||
-              tooltip.location.device ||
-              "Unknown Device"}
-          </div>
-
-          <div style={{ color: "#888", fontSize: "11px" }}>DATE</div>
-
-          <div style={{ color: "#FFF" }}>
-            {tooltip.location.date_taken || tooltip.location.date || "Unknown"}
+            <svg
+              ref={svgRef}
+              width="100%"
+              height="700"
+              style={{
+                display: "block",
+                background: "#050505",
+              }}
+            />
           </div>
         </div>
-      )}
+
+        {/* RIGHT COLUMN */}
+        <div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "12px",
+              marginBottom: "20px",
+            }}
+          >
+            {[
+              ["Photos Scanned", photosScanned],
+              ["GPS Tagged", gpsTagged],
+              ["Devices Found", devicesFound],
+              ["Risk Score", riskScore],
+            ].map(([title, value]) => (
+              <div
+                key={title}
+                style={{
+                  background: "rgba(255,107,0,0.05)",
+                  border: "1px solid rgba(255,107,0,0.15)",
+                  borderRadius: "12px",
+                  padding: "18px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#888",
+                    textTransform: "uppercase",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {title}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "36px",
+                    fontWeight: "bold",
+                    color:
+                      title === "Risk Score" && riskScore > 70
+                        ? "#FF4444"
+                        : "#FFF",
+                  }}
+                >
+                  {value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,107,0,0.15)",
+              borderRadius: "12px",
+              padding: "20px",
+              marginBottom: "20px",
+            }}
+          >
+            <div
+              style={{
+                color: "#FFF",
+                fontWeight: 700,
+                marginBottom: "12px",
+              }}
+            >
+              KEY FINDINGS
+            </div>
+
+            <div style={{ color: "#BBB", lineHeight: 2 }}>
+              <div>• {gpsTagged} GPS-tagged photos discovered</div>
+              <div>• {devicesFound} devices contain location metadata</div>
+              <div>• Historical movement patterns may be reconstructed</div>
+              <div>• High privacy exposure risk identified</div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,107,0,0.15)",
+              borderRadius: "12px",
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                color: "#FFF",
+                fontWeight: 700,
+                marginBottom: "16px",
+              }}
+            >
+              DEVICE BREAKDOWN
+            </div>
+
+            {deviceStats.map(([device, count]) => (
+              <div
+                key={device}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  color: "#DDD",
+                }}
+              >
+                <span>{device}</span>
+                <span>{count} photos</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
       <div
         style={{
           marginTop: "16px",

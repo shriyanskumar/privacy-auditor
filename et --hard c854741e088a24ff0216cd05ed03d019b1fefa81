@@ -1,0 +1,35 @@
+[33m4ec015f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull origin main: Fast-forward
+[33mb09e425[m HEAD@{1}: pull origin main: Fast-forward
+[33m420bbae[m HEAD@{2}: rebase (finish): returning to refs/heads/main
+[33m420bbae[m HEAD@{3}: pull --rebase origin main (start): checkout 420bbaecd4900bd5e0984aa0f22f214af5b7123a
+[33ma0339de[m HEAD@{4}: commit: Made changes in audit.db
+[33m8e6fd0a[m HEAD@{5}: commit (merge): Fixed some errors
+[33m4e0faa6[m HEAD@{6}: commit: Fixed some errors
+[33mb414b38[m HEAD@{7}: commit: Fixed Quarantine logic
+[33mc854741[m HEAD@{8}: commit: Fixed Restore All button placement
+[33mcb7c3d0[m HEAD@{9}: commit: feat: improve Privacy Nuke UX with search, pagination, custom scrollbars and layout fixes
+[33mdae4a1d[m HEAD@{10}: reset: moving to dae4a1d
+[33m9257c91[m HEAD@{11}: pull origin main: Fast-forward
+[33mfd1dfca[m HEAD@{12}: commit: Updated Logic to calculate Privacy Debt
+[33meac8637[m HEAD@{13}: pull: Merge made by the 'ort' strategy.
+[33mdae4a1d[m HEAD@{14}: commit (merge): Resolved conflict: kept local audit.db post-untracking
+[33m4322d37[m HEAD@{15}: commit: Bug fixed in AppDashboard and ShadowCopyPanel
+[33m5c17d06[m HEAD@{16}: commit: Updated the loading screen
+[33m01508ce[m HEAD@{17}: commit: Updated backend/index.js
+[33m9e80da5[m HEAD@{18}: commit: Updated UI/UX of Shadow Copy Panel
+[33m2256e06[m HEAD@{19}: pull: Fast-forward
+[33m847f9ff[m HEAD@{20}: commit: Corrected tracker map logic
+[33m2d122c0[m HEAD@{21}: commit: Improved the heat map layout
+[33m415bbf9[m HEAD@{22}: commit: Placement of legend in Tree map fixed
+[33mde88255[m HEAD@{23}: commit: Implement interactive privacy debt treemap visualization
+[33mc1a6f7a[m HEAD@{24}: commit: EXIF Walk implementation & dashboard fixes
+[33mc932c5e[m HEAD@{25}: commit: feat: complete tracker fingerprint module and dashboard ui refinements
+[33mcf3b5f1[m HEAD@{26}: commit: README update
+[33m57c554b[m HEAD@{27}: commit: fix: update README to PrivyScan
+[33m5b8f54f[m HEAD@{28}: commit: feat: landing page UI - all sections complete
+[33madd6285[m HEAD@{29}: commit: feat: complete backend core - scanner, db, API routes
+[33m77388c1[m HEAD@{30}: commit: restructured
+[33m180e32c[m HEAD@{31}: commit: remove node_modules from tracking
+[33meedeec4[m HEAD@{32}: commit: added gitignore
+[33m354d2a4[m HEAD@{33}: Branch: renamed refs/heads/master to refs/heads/main
+[33m354d2a4[m HEAD@{35}: commit (initial): initial commit
